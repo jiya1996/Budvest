@@ -1,0 +1,26 @@
+node_modules
+.DS_Store
+dist
+build
+.env
+.env.local
+.env.*.local
+.next
+
+# PWA generated files
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/worker-*.js
+public/worker-*.js.map
+
+# SQLite database
+data/*.db
+data/*.db-journal
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
