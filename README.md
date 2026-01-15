@@ -13,11 +13,11 @@ npm run dev
 
 # Budvest Version History: V0.1 to V0.3
 
-本文档详细介绍了 InvestBuddy (原 Budvest) 从 V0.1 到 V0.3 的版本演进与核心变化。
+本文档详细介绍了 Budvest从 V0.1 到 V0.3 的版本演进与核心变化。
 
 ## 1. 项目概览
 
-| 特性 | V0.1 (Budvest) | V0.3 (InvestBuddy 伴投) |
+| 特性 | V0.1 (Budvest) | V0.3    |
 | :--- | :--- | :--- |
 | **定位** | 投资组合管理原型 | 智能伴投助手 |
 | **架构** | 纯前端 (Next.js) | 前后端分离 (Next.js + Python Data Service) |
