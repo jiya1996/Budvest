@@ -29,6 +29,8 @@ export interface StockConfig {
   status: StockStatus;
   capital: string;
   goal: string;
+  shares?: number; // 持有股数
+  pricePerShare?: number; // 每股成本价
 }
 
 export interface PortfolioItem extends Stock {
@@ -36,6 +38,7 @@ export interface PortfolioItem extends Stock {
   holdingDays: number;
   cost: number;
   profit: number;
+  firstBuyTimestamp?: number; // 首次买入时间戳（用于计算持有天数）
 }
 
 export interface UserConfig {
@@ -46,6 +49,7 @@ export interface UserConfig {
   portfolio: PortfolioItem[];
   totalPrincipal: number;
   hasOnboarded: boolean;
+  firstLoginTimestamp?: number; // 首次登录/注册时间戳
 }
 
 export interface CompanyProfile {
@@ -71,13 +75,14 @@ export interface ChatMessage {
 }
 
 export interface ChatResponse {
-  emotion: Emotion;
-  intent: Intent;
+  emotion: Emotion | string;
+  intent: Intent | string;
   safety_level: SafetyLevel;
   reply: string;
   suggested_actions: string[];
   review_prompt: string;
   tags: string[];
+  sessionId?: string;
 }
 
 export type ReviewEntry = {

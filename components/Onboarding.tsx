@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Search, Check, ChevronRight, Target, Sparkles, Heart, TrendingUp, Shield } from 'lucide-react';
 import { Stock, StockConfig, PortfolioItem } from '@/lib/types';
 import { STOCK_DATABASE, INVESTMENT_GOALS } from '@/lib/data';
+import { getCurrencySymbol } from '@/lib/currency';
 
 interface OnboardingProps {
   onFinish: (data: { portfolio: PortfolioItem[]; totalPrincipal: number }) => void;
@@ -15,6 +16,8 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
   const [stockConfigs, setStockConfigs] = useState<Record<string, StockConfig>>({});
   const [loadingGuru, setLoadingGuru] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  // 用于临时存储输入值（字符串格式，支持输入过程中的中间状态）
+  const [inputValues, setInputValues] = useState<Record<string, { shares: string; pricePerShare: string }>>({});
 
   const filteredStocks = STOCK_DATABASE.filter(
     (stock) =>
@@ -28,19 +31,28 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
       const newConfigs = { ...stockConfigs };
       delete newConfigs[stock.symbol];
       setStockConfigs(newConfigs);
+      // 清理输入值
+      const newInputValues = { ...inputValues };
+      delete newInputValues[stock.symbol];
+      setInputValues(newInputValues);
     } else {
       setSelectedStocks([...selectedStocks, stock]);
       setStockConfigs({
         ...stockConfigs,
-        [stock.symbol]: { status: 'investing', capital: '', goal: '长期增值' },
+        [stock.symbol]: { status: 'investing', capital: '', goal: '长期增值', shares: 0, pricePerShare: 0 },
+      });
+      setInputValues({
+        ...inputValues,
+        [stock.symbol]: { shares: '', pricePerShare: '' },
       });
     }
   };
 
-  const updateConfig = (symbol: string, field: keyof StockConfig, value: string) => {
+  const updateConfig = (symbol: string, field: keyof StockConfig, value: string | number) => {
+    const currentConfig = stockConfigs[symbol] || { status: 'investing', capital: '', goal: '长期增值', shares: 0, pricePerShare: 0 };
     setStockConfigs({
       ...stockConfigs,
-      [symbol]: { ...stockConfigs[symbol], [field]: value },
+      [symbol]: { ...currentConfig, [field]: value },
     });
   };
 
@@ -50,22 +62,113 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
     } else if (step === 1 && selectedStocks.length > 0) {
       setStep(2);
     } else if (step === 2) {
+      // 验证所有持有中的股票都已填写股数和每股成本价
+      const investingStocks = selectedStocks.filter(
+        (s) => stockConfigs[s.symbol]?.status === 'investing'
+      );
+      
+      // 验证所有持有中的股票都已填写股数和每股成本价
+      // 同时检查 stockConfigs 和 inputValues（因为用户可能刚输入但还没失去焦点）
+      const hasInvalidConfig = investingStocks.some((s) => {
+        const config = stockConfigs[s.symbol];
+        const inputValue = inputValues[s.symbol];
+        
+        // 获取股数（优先使用 stockConfigs，如果没有则从 inputValues 获取）
+        let shares = config?.shares || 0;
+        if (shares <= 0 && inputValue?.shares) {
+          const sharesFromInput = Number(inputValue.shares);
+          if (!isNaN(sharesFromInput) && sharesFromInput > 0) {
+            shares = sharesFromInput;
+          }
+        }
+        
+        // 获取每股成本价（优先使用 stockConfigs，如果没有则从 inputValues 获取）
+        let pricePerShare = config?.pricePerShare || 0;
+        if (pricePerShare <= 0 && inputValue?.pricePerShare) {
+          const priceFromInput = Number(inputValue.pricePerShare);
+          if (!isNaN(priceFromInput) && priceFromInput > 0) {
+            pricePerShare = priceFromInput;
+          }
+        }
+        
+        return shares <= 0 || pricePerShare <= 0;
+      });
+
+      if (hasInvalidConfig) {
+        alert('请为所有持有中的股票填写持有股数和每股成本价');
+        return;
+      }
+      
+      // 验证通过后，同步 inputValues 到 stockConfigs（确保数据保存）
+      investingStocks.forEach((s) => {
+        const inputValue = inputValues[s.symbol];
+        if (inputValue) {
+          // 同步股数
+          if (inputValue.shares && inputValue.shares !== '0' && inputValue.shares !== '00') {
+            const shares = Number(inputValue.shares);
+            if (shares > 0) {
+              updateConfig(s.symbol, 'shares', shares);
+            }
+          }
+          // 同步每股成本价
+          if (inputValue.pricePerShare && 
+              inputValue.pricePerShare !== '0' && 
+              inputValue.pricePerShare !== '0.0' && 
+              inputValue.pricePerShare !== '0.00' &&
+              inputValue.pricePerShare !== '.' &&
+              inputValue.pricePerShare !== '') {
+            const pricePerShare = Number(inputValue.pricePerShare);
+            if (!isNaN(pricePerShare) && pricePerShare > 0) {
+              updateConfig(s.symbol, 'pricePerShare', pricePerShare);
+            }
+          }
+        }
+      });
+
       setLoadingGuru(true);
       setStep(3);
       setTimeout(() => {
-        const portfolio: PortfolioItem[] = selectedStocks.map((s) => ({
-          ...s,
-          config: stockConfigs[s.symbol],
-          holdingDays: Math.floor(Math.random() * 200),
-          cost: stockConfigs[s.symbol].capital
-            ? Number(stockConfigs[s.symbol].capital) * (1 - (Math.random() * 0.1 - 0.05))
-            : 0,
-          profit: stockConfigs[s.symbol].capital
-            ? Number(stockConfigs[s.symbol].capital) * (Math.random() * 0.2 - 0.1)
-            : 0,
-        }));
+        const portfolio: PortfolioItem[] = selectedStocks.map((s) => {
+          const config = stockConfigs[s.symbol];
+          const inputValue = inputValues[s.symbol];
+          
+          // 获取股数（优先使用 stockConfigs，如果没有则从 inputValues 获取）
+          let shares = config?.shares || 0;
+          if (shares <= 0 && inputValue?.shares) {
+            const sharesFromInput = Number(inputValue.shares);
+            if (!isNaN(sharesFromInput) && sharesFromInput > 0) {
+              shares = sharesFromInput;
+            }
+          }
+          
+          // 获取每股成本价（优先使用 stockConfigs，如果没有则从 inputValues 获取）
+          let pricePerShare = config?.pricePerShare || 0;
+          if (pricePerShare <= 0 && inputValue?.pricePerShare) {
+            const priceFromInput = Number(inputValue.pricePerShare);
+            if (!isNaN(priceFromInput) && priceFromInput > 0) {
+              pricePerShare = priceFromInput;
+            }
+          }
+          
+          // 计算总成本：每股成本价 × 股数
+          const totalCost = shares > 0 && pricePerShare > 0 ? shares * pricePerShare : 0;
+          
+          return {
+            ...s,
+            config: {
+              ...config,
+              capital: totalCost.toString(),
+              shares: shares,
+              pricePerShare: pricePerShare, // 保存每股成本价（确保保存，即使为0也保存）
+            },
+            holdingDays: 1, // 初始为1天，后续通过 firstBuyTimestamp 动态计算
+            firstBuyTimestamp: Date.now(), // 记录首次买入时间
+            cost: totalCost,
+            profit: 0, // 初始盈亏为0
+          };
+        });
         const totalPrincipal = portfolio.reduce(
-          (acc, curr) => acc + (curr.config.capital ? Number(curr.config.capital) : 0),
+          (acc, curr) => acc + (curr.cost || 0),
           0
         );
         onFinish({ portfolio, totalPrincipal });
@@ -397,7 +500,7 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
                             : 'text-gray-400'
                         }`}
                       >
-                        {status === 'investing' ? '🎯 投资中' : '👀 观望中'}
+                        {status === 'investing' ? '🎯 持有中' : '👀 观望中'}
                       </button>
                     ))}
                   </div>
@@ -406,19 +509,154 @@ export default function Onboarding({ onFinish }: OnboardingProps) {
                 {/* 配置项 */}
                 {stockConfigs[stock.symbol]?.status === 'investing' ? (
                   <div className="space-y-4">
-                    {/* 本金输入 */}
+                    {/* 持有股数 */}
                     <div>
                       <label className="text-xs font-semibold text-gray-400 uppercase mb-2 block tracking-wider">
-                        计划投入本金
+                        持有股数
+                      </label>
+                      <input
+                        type="number"
+                        value={inputValues[stock.symbol]?.shares ?? (stockConfigs[stock.symbol]?.shares?.toString() ?? '')}
+                        onChange={(e) => {
+                          const sharesStr = e.target.value;
+                          // 如果输入为0，不允许
+                          if (sharesStr === '0' || sharesStr === '00') {
+                            return;
+                          }
+                          // 更新输入值
+                          setInputValues({
+                            ...inputValues,
+                            [stock.symbol]: {
+                              ...inputValues[stock.symbol],
+                              shares: sharesStr,
+                            },
+                          });
+                          // 转换为数字并更新配置
+                          const shares = sharesStr ? Number(sharesStr) : 0;
+                          if (shares > 0) {
+                            updateConfig(stock.symbol, 'shares', shares);
+                            // 如果已有每股成本价，自动计算总成本
+                            const pricePerShare = stockConfigs[stock.symbol]?.pricePerShare || 0;
+                            if (pricePerShare > 0) {
+                              const totalCost = pricePerShare * shares;
+                              updateConfig(stock.symbol, 'capital', totalCost.toString());
+                            } else {
+                              updateConfig(stock.symbol, 'capital', '0');
+                            }
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // 失去焦点时，确保值已保存
+                          const sharesStr = e.target.value;
+                          if (sharesStr && sharesStr !== '0') {
+                            const shares = Number(sharesStr);
+                            if (shares > 0) {
+                              updateConfig(stock.symbol, 'shares', shares);
+                            } else {
+                              // 如果为0或无效，清空输入
+                              setInputValues({
+                                ...inputValues,
+                                [stock.symbol]: {
+                                  ...inputValues[stock.symbol],
+                                  shares: '',
+                                },
+                              });
+                              updateConfig(stock.symbol, 'shares', 0);
+                            }
+                          }
+                        }}
+                        className="grow-input font-mono"
+                        placeholder="例如：100"
+                        min="1"
+                        step="1"
+                      />
+                    </div>
+
+                    {/* 每股成本价 */}
+                    <div>
+                      <label className="text-xs font-semibold text-gray-400 uppercase mb-2 block tracking-wider">
+                        每股成本价
                       </label>
                       <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">¥</span>
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
+                          {getCurrencySymbol(stock.symbol)}
+                        </span>
                         <input
                           type="number"
-                          value={stockConfigs[stock.symbol]?.capital || ''}
-                          onChange={(e) => updateConfig(stock.symbol, 'capital', e.target.value)}
+                          value={inputValues[stock.symbol]?.pricePerShare ?? (stockConfigs[stock.symbol]?.pricePerShare?.toString() ?? '')}
+                          onChange={(e) => {
+                            const pricePerShareStr = e.target.value;
+                            // 如果输入为0，不允许
+                            if (pricePerShareStr === '0' || pricePerShareStr === '0.0' || pricePerShareStr === '0.00') {
+                              return;
+                            }
+                            // 允许输入小数点，保留原始字符串格式
+                            // 更新输入值（保持字符串格式，支持输入过程中的小数点）
+                            setInputValues({
+                              ...inputValues,
+                              [stock.symbol]: {
+                                ...inputValues[stock.symbol],
+                                pricePerShare: pricePerShareStr,
+                              },
+                            });
+                            // 转换为数字并更新配置（如果输入有效）
+                            if (pricePerShareStr === '' || pricePerShareStr === '.') {
+                              // 如果为空或只有小数点，暂时不更新配置
+                              return;
+                            }
+                            const pricePerShare = pricePerShareStr ? Number(pricePerShareStr) : 0;
+                            if (!isNaN(pricePerShare) && pricePerShare > 0) {
+                              updateConfig(stock.symbol, 'pricePerShare', pricePerShare);
+                              // 如果已有股数，自动计算总成本
+                              const shares = stockConfigs[stock.symbol]?.shares || 0;
+                              if (shares > 0) {
+                                const totalCost = shares * pricePerShare;
+                                updateConfig(stock.symbol, 'capital', totalCost.toString());
+                              } else {
+                                updateConfig(stock.symbol, 'capital', '0');
+                              }
+                            }
+                          }}
+                          onBlur={(e) => {
+                            // 失去焦点时，确保值已保存
+                            const pricePerShareStr = e.target.value;
+                            if (pricePerShareStr && pricePerShareStr !== '.' && pricePerShareStr !== '0' && pricePerShareStr !== '0.0' && pricePerShareStr !== '0.00') {
+                              const pricePerShare = Number(pricePerShareStr);
+                              if (!isNaN(pricePerShare) && pricePerShare > 0) {
+                                updateConfig(stock.symbol, 'pricePerShare', pricePerShare);
+                                // 重新计算总成本
+                                const shares = stockConfigs[stock.symbol]?.shares || 0;
+                                if (shares > 0) {
+                                  const totalCost = shares * pricePerShare;
+                                  updateConfig(stock.symbol, 'capital', totalCost.toString());
+                                }
+                              } else {
+                                // 如果为0或无效，清空输入
+                                setInputValues({
+                                  ...inputValues,
+                                  [stock.symbol]: {
+                                    ...inputValues[stock.symbol],
+                                    pricePerShare: '',
+                                  },
+                                });
+                                updateConfig(stock.symbol, 'pricePerShare', 0);
+                              }
+                            } else if (pricePerShareStr === '0' || pricePerShareStr === '0.0' || pricePerShareStr === '0.00') {
+                              // 如果为0，清空输入
+                              setInputValues({
+                                ...inputValues,
+                                [stock.symbol]: {
+                                  ...inputValues[stock.symbol],
+                                  pricePerShare: '',
+                                },
+                              });
+                              updateConfig(stock.symbol, 'pricePerShare', 0);
+                            }
+                          }}
                           className="grow-input pl-9 font-mono"
                           placeholder="0.00"
+                          min="0.01"
+                          step="0.01"
                         />
                       </div>
                     </div>

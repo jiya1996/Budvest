@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { ChevronRight, X, Send, Sparkles } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { GuruInfo, ChatMessage, ChatResponse } from '@/lib/types';
 import { GURUS } from '@/lib/data';
 import { storage } from '@/lib/storage';
@@ -57,22 +58,40 @@ export default function CompanionTab() {
       });
 
       if (response.ok) {
-        const data: ChatResponse = await response.json();
-        const assistantMessage: ChatMessage = {
-          role: 'assistant',
-          content: data.reply,
-          timestamp: Date.now(),
-          guruId: selectedGuru.id,
-          response: data,
-        };
+        try {
+          const data: ChatResponse = await response.json();
+          
+          if (!data.reply) {
+            toast.error('服务器返回数据异常');
+            throw new Error('Invalid response data');
+          }
+          
+          const assistantMessage: ChatMessage = {
+            role: 'assistant',
+            content: data.reply,
+            timestamp: Date.now(),
+            guruId: selectedGuru.id,
+            response: data,
+          };
 
-        setMessages((prev) => [...prev, assistantMessage]);
-        storage.saveGuruChatMessage(selectedGuru.id, assistantMessage);
+          setMessages((prev) => [...prev, assistantMessage]);
+          storage.saveGuruChatMessage(selectedGuru.id, assistantMessage);
+        } catch (parseError) {
+          toast.error('解析响应数据失败');
+          throw parseError;
+        }
       } else {
-        throw new Error('API request failed');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || errorData.error || '请求失败，请稍后重试';
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Chat error:', error);
+      const errorMsg = error instanceof Error ? error.message : '网络错误';
+      if (!errorMsg.includes('请求失败') && !errorMsg.includes('数据异常') && !errorMsg.includes('解析')) {
+        toast.error(errorMsg);
+      }
       // Fallback to mock response
       const mockResponses: Record<string, string> = {
         buffett: '记住，投资是一场马拉松，不是短跑。短期的波动就像天气，而长期的趋势才是气候。',

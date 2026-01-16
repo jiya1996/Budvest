@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Send, Brain, Shield, TrendingUp, TrendingDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { PortfolioItem } from '@/lib/types';
 import { GURUS, DAILY_INSIGHT } from '@/lib/data';
+import { getCurrencySymbol } from '@/lib/currency';
 
 interface MarketTabProps {
   portfolio: PortfolioItem[];
@@ -35,8 +36,7 @@ const GoldCoin = ({
     <div
       className="absolute z-10"
       style={{
-        animation: animate ? `dropIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards` : 'none',
-        animationDelay: `${delay}ms`,
+        animation: animate ? `dropIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${delay}ms forwards` : 'none',
         opacity: animate ? 0 : 1,
         transform: animate ? 'translateY(-100px)' : 'none',
         ...style,
@@ -91,6 +91,7 @@ const SavingsJar = ({
   amount,
   isProfit,
   profitPercent,
+  loading,
 }: {
   children: React.ReactNode;
   fillPercent: number;
@@ -99,6 +100,7 @@ const SavingsJar = ({
   amount: number;
   isProfit?: boolean;
   profitPercent?: string;
+  loading?: boolean;
 }) => (
   <div className="flex flex-col items-center">
     <div className="relative w-28 h-36">
@@ -149,7 +151,7 @@ const SavingsJar = ({
       </div>
 
       {/* 盈亏标签 */}
-      {isProfit !== undefined && profitPercent && (
+      {!loading && isProfit !== undefined && profitPercent && (
         <div
           className="absolute -right-2 top-8 px-2 py-1 rounded-lg flex items-center gap-0.5 animate-pulse-soft z-40"
           style={{
@@ -174,11 +176,22 @@ const SavingsJar = ({
       <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">{label}</div>
       <div
         className={`text-lg font-bold font-mono px-3 py-1 rounded-full ${
-          isProfit !== undefined ? (isProfit ? 'text-green-600' : 'text-red-500') : 'text-gray-700'
+          loading
+            ? 'text-gray-400'
+            : isProfit !== undefined
+            ? isProfit
+              ? 'text-green-600'
+              : 'text-red-500'
+            : 'text-gray-700'
         }`}
         style={{ background: 'rgba(255, 255, 255, 0.8)' }}
       >
-        {isProfit !== undefined && amount >= 0 ? '+' : ''}¥{Math.abs(amount).toLocaleString()}
+        {loading
+          ? '¥--'
+          : `${isProfit !== undefined && amount >= 0 ? '+' : ''}¥${Math.abs(amount).toLocaleString(
+              'zh-CN',
+              { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+            )}`}
       </div>
     </div>
   </div>
@@ -187,9 +200,67 @@ const SavingsJar = ({
 export default function MarketTab({ portfolio, totalPrincipal, totalProfit, animateCoins }: MarketTabProps) {
   const [marketInput, setMarketInput] = useState('');
   const [showPortfolioDetail, setShowPortfolioDetail] = useState(false);
+  const [exchangeRates, setExchangeRates] = useState<{ USDCNY: number; HKDCNY: number; CNYCNY: number } | null>(null);
 
   const investingStocks = portfolio.filter((s) => s.config.status === 'investing');
-  const profitPercentage = totalPrincipal > 0 ? ((totalProfit / totalPrincipal) * 100).toFixed(1) : '0';
+
+  // 获取汇率（与 PortfolioTab 保持一致）
+  useEffect(() => {
+    const fetchExchangeRates = async () => {
+      try {
+        const response = await fetch('/api/exchange-rate');
+        if (response.ok) {
+          const data = await response.json();
+          setExchangeRates(data.rates);
+        } else {
+          setExchangeRates({ USDCNY: 7.2, HKDCNY: 0.92, CNYCNY: 1 });
+        }
+      } catch (error) {
+        console.error('Failed to fetch exchange rates in MarketTab:', error);
+        setExchangeRates({ USDCNY: 7.2, HKDCNY: 0.92, CNYCNY: 1 });
+      }
+    };
+    fetchExchangeRates();
+  }, []);
+
+  // 将金额转换为人民币（与 PortfolioTab 逻辑一致）
+  const convertToCNY = (amount: number, symbol: string): number => {
+    if (!exchangeRates) return amount;
+
+    const currency = getCurrencySymbol(symbol);
+    if (currency === '¥') {
+      return amount;
+    } else if (currency === 'HK$') {
+      return amount * exchangeRates.HKDCNY;
+    } else if (currency === '$') {
+      return amount * exchangeRates.USDCNY;
+    }
+    return amount;
+  };
+
+  // 使用与 PortfolioTab 一致的规则：优先基于持仓+汇率计算人民币口径的总本金/总盈亏
+  const hasExchangeRates = !!exchangeRates;
+  const hasInvesting = investingStocks.length > 0;
+  const isLoadingJar = hasInvesting && !hasExchangeRates;
+
+  const totalInvestedCNY =
+    hasInvesting && hasExchangeRates
+      ? investingStocks.reduce(
+          (sum, item) => sum + convertToCNY(item.cost || 0, item.symbol),
+          0
+        )
+      : 0;
+
+  const totalProfitCNY =
+    hasInvesting && hasExchangeRates
+      ? investingStocks.reduce(
+          (sum, item) => sum + convertToCNY(item.profit || 0, item.symbol),
+          0
+        )
+      : 0;
+
+  const profitPercentage =
+    totalInvestedCNY > 0 ? ((totalProfitCNY / totalInvestedCNY) * 100).toFixed(1) : '0';
 
   // 生成随机金币位置
   const generateCoinPositions = (count: number, startBottom: number) => {
@@ -243,7 +314,8 @@ export default function MarketTab({ portfolio, totalPrincipal, totalProfit, anim
               fillPercent={75}
               animate={animateCoins}
               label="本金罐"
-              amount={totalPrincipal}
+              amount={totalInvestedCNY}
+              loading={isLoadingJar}
             >
               {principalCoins.map((pos, i) => (
                 <GoldCoin
@@ -261,9 +333,10 @@ export default function MarketTab({ portfolio, totalPrincipal, totalProfit, anim
               fillPercent={Math.min(Math.abs(Number(profitPercentage)) * 3 + 20, 60)}
               animate={animateCoins}
               label="盈亏罐"
-              amount={totalProfit}
-              isProfit={totalProfit >= 0}
+              amount={totalProfitCNY}
+              isProfit={totalProfitCNY >= 0}
               profitPercent={profitPercentage}
+              loading={isLoadingJar}
             >
               {profitCoins.map((pos, i) => (
                 <GoldCoin
@@ -310,12 +383,12 @@ export default function MarketTab({ portfolio, totalPrincipal, totalProfit, anim
                   </div>
                   <div className="text-right">
                     <div className="font-mono text-sm text-gray-700">
-                      ¥{stock.config.capital ? Number(stock.config.capital).toLocaleString() : 0}
+                      {getCurrencySymbol(stock.symbol)}{stock.config.capital ? Number(stock.config.capital).toLocaleString() : 0}
                     </div>
                     <div
                       className={`text-xs font-bold ${stock.profit >= 0 ? 'text-green-600' : 'text-red-500'}`}
                     >
-                      {stock.profit >= 0 ? '+' : ''}¥{Math.round(stock.profit).toLocaleString()}
+                      {stock.profit >= 0 ? '+' : ''}{getCurrencySymbol(stock.symbol)}{Math.round(stock.profit).toLocaleString()}
                     </div>
                   </div>
                 </div>

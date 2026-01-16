@@ -33,7 +33,26 @@ export async function GET(request: NextRequest) {
         news = await fetchHKNews(code);
         break;
       case 'CN':
-        news = await fetchCNNews(code);
+        // V0.3 Change: Use local SQLite DB for CN news (populated by Python service)
+        // Dynamically import to avoid circular dependencies if any, though lib/db is safe
+        const { getStockNews } = await import('@/lib/db');
+        const dbNews = getStockNews(code, limit);
+
+        // Convert DB News to API NewsItem format
+        news = dbNews.map(item => ({
+          title: item.title,
+          source: item.source || 'SSE',
+          publishedAt: item.publish_time || item.created_at, // Fallback to created_at
+          url: item.url || '#'
+        }));
+
+        // If DB is empty (service not running yet), fall back to direct fetch?
+        // For strict V0.3 architecture compliance, we should rely on DB, but for "3 days to launch" safety, 
+        // we keep the fallback to fetchCNNews if DB returns empty.
+        if (news.length === 0) {
+          console.log('Local DB empty for CN news, falling back to direct fetch');
+          news = await fetchCNNews(code);
+        }
         break;
       default:
         // Unknown market
@@ -48,7 +67,14 @@ export async function GET(request: NextRequest) {
       news = news.slice(0, limit);
     }
 
-    return NextResponse.json({ news });
+    // Map publishedAt to publishedDate to match frontend type definition
+    const mappedNews = news.map(item => ({
+      title: item.title,
+      publishedDate: item.publishedAt,
+      url: item.url,
+    }));
+
+    return NextResponse.json({ news: mappedNews });
   } catch (error) {
     console.error('Error inside market news API:', error);
     // Requirement 6: Return [] on exception, do not throw 500

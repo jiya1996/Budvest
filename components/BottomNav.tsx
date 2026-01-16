@@ -1,12 +1,13 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { Home, MessageCircle, Briefcase, User } from 'lucide-react';
 
 type TabType = 'market' | 'companion' | 'portfolio' | 'profile';
 
-interface BottomNavProps {
-  activeTab: TabType;
-  onTabChange: (tab: TabType) => void;
+export interface BottomNavProps {
+  activeTab?: TabType;
+  onTabChange?: (tab: TabType) => void;
 }
 
 const navItems: { id: TabType; icon: typeof Home; label: string; activeColor: string; activeShadow: string }[] = [
@@ -40,7 +41,18 @@ const navItems: { id: TabType; icon: typeof Home; label: string; activeColor: st
   },
 ];
 
-export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
+export default function BottomNav({ activeTab = 'market', onTabChange }: BottomNavProps) {
+  const router = useRouter();
+
+  const handleTabChange = (tab: TabType) => {
+    if (onTabChange) {
+      onTabChange(tab);
+    } else {
+      // Default behavior: navigate to main page with tab parameter
+      router.push(`/?tab=${tab}`);
+    }
+  };
+
   return (
     <nav
       className="h-[84px] flex justify-around items-start pt-3 px-4 z-40 safe-bottom"
@@ -56,7 +68,7 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
         return (
           <button
             key={item.id}
-            onClick={() => onTabChange(item.id)}
+            onClick={() => handleTabChange(item.id)}
             className="flex flex-col items-center gap-1.5 w-16 transition-all duration-300"
           >
             <div

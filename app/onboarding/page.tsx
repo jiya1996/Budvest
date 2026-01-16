@@ -8,15 +8,33 @@ import Card from '@/components/Card';
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [userGoal, setUserGoal] = useState('');
+  const [userGoal, setUserGoal] = useState('长期持有');
+  const [customGoal, setCustomGoal] = useState('');
   const [selectedGuru, setSelectedGuru] = useState<Guru>('coach');
   const [watchlist, setWatchlist] = useState<string[]>(['TSLA', 'AAPL']);
   const [newTicker, setNewTicker] = useState('');
 
+  const goalOptions = [
+    '长期持有',
+    '短期套利',
+    '价值投资',
+    '成长投资',
+    '稳健收益',
+    '其他'
+  ];
+
   useEffect(() => {
     const config = storage.getUserConfig();
     if (config) {
-      setUserGoal(config.userGoal || '');
+      if (config.userGoal) {
+        // 检查是否是预设选项
+        if (goalOptions.slice(0, 5).includes(config.userGoal)) {
+          setUserGoal(config.userGoal);
+        } else {
+          setUserGoal('其他');
+          setCustomGoal(config.userGoal);
+        }
+      }
       setSelectedGuru(config.selectedGuru || 'coach');
       setWatchlist(config.watchlist || []);
     }
@@ -35,16 +53,21 @@ export default function OnboardingPage() {
   };
 
   const handleSubmit = () => {
-    if (!userGoal.trim() || watchlist.length === 0) {
-      alert('请填写投资目标并添加至少一支股票');
+    const finalGoal = userGoal === '其他' ? customGoal.trim() : userGoal;
+
+    if (!finalGoal || watchlist.length === 0) {
+      alert('请选择投资目标并添加至少一支股票');
       return;
     }
 
     const config: UserConfig = {
-      userGoal: userGoal.trim(),
+      userGoal: finalGoal,
       selectedGuru: selectedGuru,
       watchlist: watchlist,
       mainSymbol: watchlist[0] || '',
+      portfolio: [],
+      totalPrincipal: 0,
+      hasOnboarded: true,
     };
 
     storage.saveUserConfig(config);
@@ -67,28 +90,54 @@ export default function OnboardingPage() {
         <label
           style={{
             display: 'block',
-            marginBottom: '8px',
+            marginBottom: '16px',
             fontWeight: '500',
             fontSize: '14px',
           }}
         >
           你的投资目标
         </label>
-        <textarea
-          value={userGoal}
-          onChange={(e) => setUserGoal(e.target.value)}
-          placeholder="例如：长期持有，追求稳健增长"
-          style={{
-            width: '100%',
-            minHeight: '80px',
-            padding: '12px',
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontFamily: 'inherit',
-            resize: 'vertical',
-          }}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {goalOptions.map((goal) => (
+            <label
+              key={goal}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '12px',
+                border: userGoal === goal ? '2px solid #2563eb' : '1px solid #e5e7eb',
+                borderRadius: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="radio"
+                name="goal"
+                value={goal}
+                checked={userGoal === goal}
+                onChange={(e) => setUserGoal(e.target.value)}
+                style={{ marginRight: '12px' }}
+              />
+              <div style={{ fontWeight: '500' }}>{goal}</div>
+            </label>
+          ))}
+        </div>
+        {userGoal === '其他' && (
+          <input
+            type="text"
+            value={customGoal}
+            onChange={(e) => setCustomGoal(e.target.value)}
+            placeholder="请输入您的投资目标"
+            style={{
+              width: '100%',
+              marginTop: '12px',
+              padding: '12px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              fontSize: '14px',
+            }}
+          />
+        )}
       </Card>
 
       <Card>
@@ -147,7 +196,7 @@ export default function OnboardingPage() {
           <input
             type="text"
             value={newTicker}
-            onChange={(e) => setNewTicker(e.target.value.toUpperCase())}
+            onChange={(e) => setNewTicker(e.target.value)}
             placeholder="输入股票代码，如 TSLA"
             onKeyPress={(e) => e.key === 'Enter' && handleAddTicker()}
             style={{

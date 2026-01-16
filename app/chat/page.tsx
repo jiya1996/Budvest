@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 import { storage } from '@/lib/storage';
 import { ChatMessage, ChatResponse, UserConfig, MarketContext } from '@/lib/types';
 import Card from '@/components/Card';
@@ -50,12 +51,28 @@ export default function ChatPage() {
       // Fetch market context
       const mainSymbol = config.mainSymbol || config.watchlist[0] || '';
       const [companyRes, newsRes] = await Promise.all([
-        fetch(`/api/market/company?symbol=${mainSymbol}`).catch(() => null),
-        fetch(`/api/market/news?symbol=${mainSymbol}&limit=5`).catch(() => null),
+        fetch(`/api/market/company?symbol=${mainSymbol}`).catch((err) => {
+          console.error('Failed to fetch company data:', err);
+          return null;
+        }),
+        fetch(`/api/market/news?symbol=${mainSymbol}&limit=5`).catch((err) => {
+          console.error('Failed to fetch news data:', err);
+          return null;
+        }),
       ]);
 
+      // Check for errors in market context
+      if (companyRes && !companyRes.ok) {
+        const errorData = await companyRes.json().catch(() => ({}));
+        toast.error(errorData.error || '获取公司信息失败');
+      }
+      if (newsRes && !newsRes.ok) {
+        const errorData = await newsRes.json().catch(() => ({}));
+        toast.error(errorData.error || '获取新闻失败');
+      }
+
       const marketContext: MarketContext = {
-        company: companyRes?.ok ? await companyRes.json() : null,
+        company: companyRes?.ok ? await companyRes.json().catch(() => null) : null,
         news: newsRes?.ok ? (await newsRes.json()).news || [] : [],
       };
 
@@ -84,10 +101,18 @@ export default function ChatPage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'API request failed');
+        const errorMessage = errorData.message || errorData.error || '请求失败，请稍后重试';
+        toast.error(errorMessage);
+        throw new Error(errorMessage);
       }
 
       const data: ChatResponse = await response.json();
+      
+      // Validate response data
+      if (!data.reply) {
+        toast.error('服务器返回数据异常');
+        throw new Error('Invalid response data');
+      }
 
       // Add assistant message with response data
       const assistantMessage: ChatMessage = {
@@ -104,6 +129,10 @@ export default function ChatPage() {
       });
     } catch (error) {
       console.error('Chat error:', error);
+      const errorMsg = error instanceof Error ? error.message : '网络或配置问题，请稍后重试';
+      if (!errorMsg.includes('请求失败') && !errorMsg.includes('数据异常')) {
+        toast.error(errorMsg);
+      }
       // Add error message as assistant message
       const errorMessage: ChatMessage = {
         role: 'assistant',
@@ -160,7 +189,7 @@ export default function ChatPage() {
     // Check if redirected from dashboard insight button
     if (searchParams.get('action') === 'insight' && !insightTriggered.current) {
       insightTriggered.current = true;
-      const insightPrompt = '请基于当前市场情况，给我一个今日投资洞察。';
+      const insightPrompt = '请分析当前市场情绪和我的持仓表现，只陈述客观事实和数据，帮助我理解当前状况。不要给出任何操作建议（如买入、卖出、持有、观察等）。';
       setInput(insightPrompt);
       handleSend(insightPrompt).catch(console.error);
     }
@@ -349,7 +378,7 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
-      <BottomNav />
+      <BottomNav activeTab="companion" onTabChange={(tab) => { if (tab !== 'companion') { router.push(`/?tab=${tab}`); } }} />
     </>
   );
 }

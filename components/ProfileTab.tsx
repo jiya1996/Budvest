@@ -1,13 +1,167 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { User, Award, Brain, Shield, Check, ChevronRight, Settings, HelpCircle, Info, Sparkles, RotateCcw } from 'lucide-react';
-import { USER_TAGS, GROWTH_FOOTPRINTS } from '@/lib/data';
+import { USER_TAGS, GROWTH_FOOTPRINTS, GURUS } from '@/lib/data';
+import { storage } from '@/lib/storage';
+import { PortfolioItem } from '@/lib/types';
 
 interface ProfileTabProps {
   onResetOnboarding?: () => void;
+  portfolio?: PortfolioItem[];
+  totalPrincipal?: number;
+  totalProfit?: number;
 }
 
-export default function ProfileTab({ onResetOnboarding }: ProfileTabProps) {
+export default function ProfileTab({ 
+  onResetOnboarding, 
+  portfolio: propPortfolio, 
+  totalPrincipal: propTotalPrincipal, 
+  totalProfit: propTotalProfit 
+}: ProfileTabProps) {
+  const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
+  const [totalPrincipal, setTotalPrincipal] = useState(0);
+  const [totalProfit, setTotalProfit] = useState(0);
+  const [daysAccompanied, setDaysAccompanied] = useState(0);
+  const [chatCount, setChatCount] = useState(0);
+  
+  // 从 props 或 storage 获取 portfolio 数据
+  useEffect(() => {
+    if (propPortfolio && propPortfolio.length > 0) {
+      setPortfolio(propPortfolio);
+    } else {
+      const config = storage.getUserConfig();
+      if (config && config.portfolio) {
+        setPortfolio(config.portfolio);
+      }
+    }
+  }, [propPortfolio]);
+  
+  // 从 props 或 storage 获取总本金和总盈亏数据
+  useEffect(() => {
+    if (propTotalPrincipal !== undefined) {
+      setTotalPrincipal(propTotalPrincipal);
+    } else {
+      const config = storage.getUserConfig();
+      if (config) {
+        // 计算总投入本金（基于持有中列表所有股票的成本总和）
+        const investingItems = (config.portfolio || []).filter((item) => item.config.status === 'investing');
+        const calculatedPrincipal = investingItems.reduce(
+          (sum, item) => sum + (item.cost || 0),
+          0
+        );
+        setTotalPrincipal(calculatedPrincipal);
+      }
+    }
+    
+    if (propTotalProfit !== undefined) {
+      setTotalProfit(propTotalProfit);
+    } else {
+      const config = storage.getUserConfig();
+      if (config) {
+        // 计算总盈亏（基于持有中列表所有股票的盈亏总和）
+        const investingItems = (config.portfolio || []).filter((item) => item.config.status === 'investing');
+        const calculatedProfit = investingItems.reduce(
+          (sum, item) => sum + (item.profit || 0),
+          0
+        );
+        setTotalProfit(calculatedProfit);
+      }
+    }
+  }, [propTotalPrincipal, propTotalProfit]);
+  
+  // 监听 storage 变化（当其他组件更新数据时）
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const config = storage.getUserConfig();
+      if (config && config.portfolio) {
+        setPortfolio(config.portfolio);
+        
+        // 重新计算总投入本金和总盈亏
+        const investingItems = config.portfolio.filter((item) => item.config.status === 'investing');
+        const calculatedPrincipal = investingItems.reduce(
+          (sum, item) => sum + (item.cost || 0),
+          0
+        );
+        const calculatedProfit = investingItems.reduce(
+          (sum, item) => sum + (item.profit || 0),
+          0
+        );
+        setTotalPrincipal(calculatedPrincipal);
+        setTotalProfit(calculatedProfit);
+      }
+    };
+    
+    // 监听自定义事件（当 portfolio 更新时触发）
+    window.addEventListener('portfolioUpdated', handleStorageChange);
+    
+    // 定期检查 storage（作为备用方案）
+    const interval = setInterval(handleStorageChange, 1000);
+    
+    return () => {
+      window.removeEventListener('portfolioUpdated', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+  
+  // 计算总收益率 = (总盈亏 / 总本金) × 100%
+  const totalReturnRate = totalPrincipal > 0 
+    ? ((totalProfit / totalPrincipal) * 100).toFixed(1)
+    : '0.0';
+  
+  // 计算已陪伴天数：从注册时间到今天的天数
+  useEffect(() => {
+    const config = storage.getUserConfig();
+    if (config && config.firstLoginTimestamp) {
+      const firstLoginDate = new Date(config.firstLoginTimestamp);
+      const today = new Date();
+      // 设置为当天的开始时间，避免时间差影响天数计算
+      today.setHours(0, 0, 0, 0);
+      firstLoginDate.setHours(0, 0, 0, 0);
+      const diffTime = Math.abs(today.getTime() - firstLoginDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      // 至少显示1天
+      setDaysAccompanied(Math.max(1, diffDays));
+    } else {
+      // 如果没有注册时间，默认为1天
+      setDaysAccompanied(1);
+    }
+  }, []);
+  
+  // 计算对话次数：统计所有智能体的对话消息总数
+  useEffect(() => {
+    let totalChatCount = 0;
+    // 遍历所有智能体，统计每个智能体的对话消息数
+    GURUS.forEach((guru) => {
+      const messages = storage.getGuruChatMessages(guru.id);
+      // 只统计用户发送的消息（role === 'user'）
+      const userMessages = messages.filter((msg) => msg.role === 'user');
+      totalChatCount += userMessages.length;
+    });
+    setChatCount(totalChatCount);
+  }, []);
+  
+  // 监听 portfolioUpdated 事件，刷新对话次数
+  useEffect(() => {
+    const handlePortfolioUpdated = () => {
+      let totalChatCount = 0;
+      GURUS.forEach((guru) => {
+        const messages = storage.getGuruChatMessages(guru.id);
+        const userMessages = messages.filter((msg) => msg.role === 'user');
+        totalChatCount += userMessages.length;
+      });
+      setChatCount(totalChatCount);
+    };
+    
+    window.addEventListener('portfolioUpdated', handlePortfolioUpdated);
+    
+    return () => {
+      window.removeEventListener('portfolioUpdated', handlePortfolioUpdated);
+    };
+  }, []);
+  
+  // 计算持有中的股票数量
+  const holdingCount = portfolio.filter((item) => item.config.status === 'investing').length;
   const getIcon = (type: string) => {
     switch (type) {
       case 'shield':
@@ -106,7 +260,7 @@ export default function ProfileTab({ onResetOnboarding }: ProfileTabProps) {
                       color: '#64748B',
                     }}
                   >
-                    已陪伴 7 天
+                    已陪伴 {daysAccompanied} 天
                   </span>
                 </div>
               </div>
@@ -118,15 +272,17 @@ export default function ProfileTab({ onResetOnboarding }: ProfileTabProps) {
               style={{ background: 'linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)' }}
             >
               <div className="text-center">
-                <div className="text-xl font-bold text-gray-700">3</div>
+                <div className="text-xl font-bold text-gray-700">{holdingCount}</div>
                 <div className="text-xs text-gray-400">持仓股票</div>
               </div>
               <div className="text-center border-x border-gray-200">
-                <div className="text-xl font-bold text-green-600">+12%</div>
+                <div className={`text-xl font-bold ${Number(totalReturnRate) >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                  {Number(totalReturnRate) >= 0 ? '+' : ''}{totalReturnRate}%
+                </div>
                 <div className="text-xs text-gray-400">总收益率</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold text-gray-700">15</div>
+                <div className="text-xl font-bold text-gray-700">{chatCount}</div>
                 <div className="text-xs text-gray-400">对话次数</div>
               </div>
             </div>
