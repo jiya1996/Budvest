@@ -63,19 +63,6 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   reactStrictMode: true,
 
-  // 排除原生模块（better-sqlite3 需要编译）
-  serverExternalPackages: ['better-sqlite3'],
-
-  // Webpack 配置
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      // 服务端排除 better-sqlite3
-      config.externals = config.externals || [];
-      config.externals.push('better-sqlite3');
-    }
-    return config;
-  },
-
   // PWA manifest 配置
   async headers() {
     return [

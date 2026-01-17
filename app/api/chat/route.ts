@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { ChatResponse, Guru } from '@/lib/types';
-import { memoryManager, initMemoryTables } from '@/lib/memory';
-import { searchKnowledge, formatKnowledgeContext, initKnowledgeTables } from '@/lib/rag';
+import { memoryManager } from '@/lib/memory';
+import { searchKnowledge, formatKnowledgeContext } from '@/lib/rag';
 import { shouldUseTool, executeWithTools, Message } from '@/lib/tools';
 import { classifyIntent, buildContextBundle, reflectOnResponse, formatContextPrompt } from '@/lib/reasoning';
 
@@ -15,15 +15,13 @@ let tablesInitialized = false;
 function ensureTablesInitialized() {
   if (!tablesInitialized) {
     try {
-      initMemoryTables();
-      initKnowledgeTables();
+      // Supabase tables are managed via migrations, no need to init here
       tablesInitialized = true;
     } catch (error) {
       console.error('Failed to initialize tables:', error);
     }
 
     // Asynchronously seed knowledge (fire and forget)
-    // We import it dynamically or assume it's available from the module import
     import('@/lib/rag').then(({ seedInitialKnowledge }) => {
       seedInitialKnowledge().catch(e => console.error('Background seeding failed:', e));
     });

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getIndexRealtime, isDatabaseAvailable } from '@/lib/db';
+import { getIndexRealtime } from '@/lib/market-data';
 
 /**
  * 指数实时行情 API
- * GET /api/market/index?symbol=000001
+ * GET /api/market/index?symbol=sh000001
  * GET /api/market/index (获取所有指数)
  */
 export async function GET(request: NextRequest) {
@@ -11,20 +11,12 @@ export async function GET(request: NextRequest) {
   const symbol = searchParams.get('symbol');
 
   try {
-    // 检查数据库是否可用
-    if (!isDatabaseAvailable()) {
-      return NextResponse.json({
-        error: '数据库不可用，请先启动数据采集服务',
-        hint: 'cd data-service && python run.py'
-      }, { status: 503 });
-    }
-
-    const data = getIndexRealtime(symbol || undefined);
+    const data = await getIndexRealtime(symbol || undefined);
 
     if (!data || data.length === 0) {
       return NextResponse.json({
         error: symbol ? `指数 ${symbol} 数据未找到` : '暂无指数数据',
-        hint: '请确保数据采集服务已运行'
+        hint: '数据正在更新中，请稍后再试'
       }, { status: 404 });
     }
 
@@ -48,7 +40,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: symbol ? result[0] : result,
-      source: 'akshare',
+      source: 'hybrid',
     });
 
   } catch (error) {

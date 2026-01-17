@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStockDaily, isDatabaseAvailable } from '@/lib/db';
+import { getStockDaily } from '@/lib/market-data';
 
 /**
  * 日K线数据 API
@@ -27,36 +27,24 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 检查数据库是否可用
-    if (!isDatabaseAvailable()) {
-      return NextResponse.json({
-        error: '数据库不可用，请先启动数据采集服务',
-        hint: 'cd data-service && python run.py'
-      }, { status: 503 });
-    }
-
-    const data = getStockDaily(symbol, limit);
+    const data = await getStockDaily(symbol, limit);
 
     if (!data || data.length === 0) {
       return NextResponse.json({
         error: `股票 ${symbol} 日K线数据未找到`,
-        hint: '请确保数据采集服务已运行'
+        hint: '数据正在采集中，请稍后再试'
       }, { status: 404 });
     }
 
     // 格式化返回数据（按日期正序，方便绘制 K 线图）
-    const result = (data as any[]).map(item => ({
+    const result = data.map(item => ({
       date: item.trade_date,
       open: item.open,
       high: item.high,
       low: item.low,
       close: item.close,
       volume: item.volume,
-      amount: item.amount,
-      amplitude: item.amplitude,
       changePct: item.change_pct,
-      changeAmount: item.change_amount,
-      turnoverRate: item.turnover_rate,
     })).reverse();  // 反转为正序（从早到晚）
 
     return NextResponse.json({
@@ -64,7 +52,7 @@ export async function GET(request: NextRequest) {
       symbol,
       count: result.length,
       data: result,
-      source: 'akshare',
+      source: 'hybrid',
     });
 
   } catch (error) {

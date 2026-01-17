@@ -12,7 +12,7 @@ import {
   getFundFlow,
   getMarginTrading,
   getEarningsCalendar
-} from './db';
+} from './market-data';
 
 // OpenAI 客户端
 let openai: OpenAI | null = null;
@@ -70,7 +70,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
       }
     },
     handler: async (params) => {
-      const data = getStockRealtime(params.symbol);
+      const data = await getStockRealtime(params.symbol);
       if (!data || data.length === 0) {
         return { error: `未找到股票 ${params.symbol} 的数据` };
       }
@@ -107,7 +107,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
     },
     handler: async (params) => {
       const days = params.days || 30;
-      const data = getStockDaily(params.symbol, days);
+      const data = await getStockDaily(params.symbol, days);
       if (!data || data.length === 0) {
         return { error: `未找到股票 ${params.symbol} 的K线数据` };
       }
@@ -138,7 +138,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
       }
     },
     handler: async (params) => {
-      const data = getFundFlow(params.symbol, 5);
+      const data = await getFundFlow(params.symbol, 5);
       if (!data || data.length === 0) {
         return { error: `未找到股票 ${params.symbol} 的资金流向数据` };
       }
@@ -176,7 +176,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
     },
     handler: async (params) => {
       const limit = params.limit || 5;
-      const data = getStockNews(params.symbol, limit);
+      const data = await getStockNews(params.symbol, limit);
       if (!data || data.length === 0) {
         return { error: `未找到股票 ${params.symbol} 的相关新闻` };
       }
@@ -197,7 +197,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
     description: '获取市场整体行情概览，包括上证指数、深证成指、创业板指等主要指数。',
     parameters: {},
     handler: async () => {
-      const data = getIndexRealtime();
+      const data = await getIndexRealtime();
       if (!data || data.length === 0) {
         return { error: '未找到市场指数数据' };
       }
@@ -223,7 +223,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
       }
     },
     handler: async (params) => {
-      const data = getMarginTrading(params.symbol, 5);
+      const data = await getMarginTrading(params.symbol, 5);
       if (!data || data.length === 0) {
         return { error: `未找到股票 ${params.symbol} 的融资融券数据，可能该股票不在两融标的范围内` };
       }
@@ -249,11 +249,12 @@ export const AVAILABLE_TOOLS: Tool[] = [
       }
     },
     handler: async (params) => {
-      const data = getEarningsCalendar(params.symbol);
+      const data = await getEarningsCalendar(params.symbol);
       if (!data || data.length === 0) {
-        return { error: params.symbol
-          ? `未找到股票 ${params.symbol} 的财报数据`
-          : '未找到财报日历数据'
+        return {
+          error: params.symbol
+            ? `未找到股票 ${params.symbol} 的财报数据`
+            : '未找到财报日历数据'
         };
       }
       return {
@@ -289,7 +290,7 @@ export const AVAILABLE_TOOLS: Tool[] = [
       }
     },
     handler: async (params) => {
-      const stockData = getStockRealtime(params.symbol);
+      const stockData = await getStockRealtime(params.symbol);
       if (!stockData || stockData.length === 0) {
         return { error: `未找到股票 ${params.symbol} 的实时数据` };
       }

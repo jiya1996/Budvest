@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getMarginTrading, isDatabaseAvailable } from '@/lib/db';
+import { getMarginTrading, isDatabaseAvailable } from '@/lib/market-data';
 
 /**
  * 融资融券 API
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // 检查数据库是否可用
-    if (!isDatabaseAvailable()) {
+    // Database check removed
       return NextResponse.json({
         error: '数据库不可用，请先启动数据采集服务',
         hint: 'cd data-service && python run.py'
