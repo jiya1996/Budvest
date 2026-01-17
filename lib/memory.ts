@@ -1,25 +1,14 @@
 /**
- * 记忆系统模块
+ * 记忆系统模块 (Supabase 版本)
  * 管理用户对话的短期记忆、长期记忆和用户画像
+ * 使用 Supabase PostgreSQL 进行持久化存储
  */
 
-import path from 'path';
-
-// 数据库路径
-const DB_PATH = path.join(process.cwd(), 'data', 'investbuddy.db');
-
-// 动态加载 better-sqlite3（可能在某些环境不可用）
-let DatabaseConstructor: any = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  DatabaseConstructor = require('better-sqlite3');
-} catch {
-  console.warn('better-sqlite3 not available, memory features will be disabled');
-}
+import { supabase, isSupabaseConfigured } from './supabase';
 
 // 类型定义
 export interface ChatMessage {
-  id?: number;
+  id?: string;
   sessionId: string;
   role: 'user' | 'assistant';
   content: string;
@@ -29,7 +18,7 @@ export interface ChatMessage {
 }
 
 export interface ChatSession {
-  id?: number;
+  id?: string;
   userId: string;
   sessionId: string;
   guru?: string;
@@ -82,207 +71,343 @@ export interface EmotionTrend {
   dominantEmotion: string;
 }
 
-// 获取数据库连接
-function getDb(): any | null {
-  if (!DatabaseConstructor) return null;
-  try {
-    return new DatabaseConstructor(DB_PATH);
-  } catch {
-    return null;
-  }
-}
-
-// 初始化记忆相关表
-export function initMemoryTables(): void {
-  const db = getDb();
-  if (!db) return;
-
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS chat_sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id VARCHAR(50) NOT NULL,
-        session_id VARCHAR(50) NOT NULL UNIQUE,
-        guru VARCHAR(20),
-        summary TEXT,
-        emotional_journey JSON,
-        topics JSON,
-        started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        ended_at DATETIME
-      )
-    `);
-
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS chat_messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id VARCHAR(50) NOT NULL,
-        role VARCHAR(10) NOT NULL,
-        content TEXT NOT NULL,
-        emotion VARCHAR(20),
-        intent VARCHAR(20),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS user_profiles (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id VARCHAR(50) UNIQUE NOT NULL,
-        investment_style JSON,
-        emotion_patterns JSON,
-        decision_patterns JSON,
-        learning_progress JSON,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_sessions_user ON chat_sessions(user_id);
-      CREATE INDEX IF NOT EXISTS idx_messages_session ON chat_messages(session_id);
-      CREATE INDEX IF NOT EXISTS idx_sessions_started ON chat_sessions(started_at);
-    `);
-  } finally {
-    db.close();
-  }
-}
-
 /**
- * 记忆管理器类
+ * 记忆管理器类 (Supabase 版本)
  */
 export class MemoryManager {
+  // 工作记忆缓存（减少数据库查询）
   private workingMemory: Map<string, ChatMessage[]> = new Map();
 
+  /**
+   * 创建新的对话会话
+   */
   async createSession(userId: string, sessionId: string, guru?: string): Promise<void> {
-    const db = getDb();
-    if (!db) return;
-    try {
-      db.prepare(`INSERT INTO chat_sessions (user_id, session_id, guru) VALUES (?, ?, ?)`).run(userId, sessionId, guru);
-    } finally {
-      db.close();
+    if (!isSupabaseConfigured()) return;
+
+    const { error } = await supabase.from('chat_sessions').insert({
+      user_id: userId,
+      session_id: sessionId,
+      guru: guru || null
+    });
+
+    if (error) {
+      console.error('Failed to create session:', error);
     }
   }
 
+  /**
+   * 结束对话会话
+   */
   async endSession(sessionId: string, summary?: string): Promise<void> {
-    const db = getDb();
-    if (!db) return;
-    try {
-      db.prepare(`UPDATE chat_sessions SET ended_at = CURRENT_TIMESTAMP, summary = ? WHERE session_id = ?`).run(summary, sessionId);
-      this.workingMemory.delete(sessionId);
-    } finally {
-      db.close();
+    if (!isSupabaseConfigured()) return;
+
+    const { error } = await supabase
+      .from('chat_sessions')
+      .update({
+        ended_at: new Date().toISOString(),
+        summary: summary || null
+      })
+      .eq('session_id', sessionId);
+
+    if (error) {
+      console.error('Failed to end session:', error);
     }
+
+    this.workingMemory.delete(sessionId);
   }
 
+  /**
+   * 保存对话消息
+   */
   async saveMessage(message: ChatMessage): Promise<void> {
-    const db = getDb();
-    if (!db) return;
-    try {
-      db.prepare(`INSERT INTO chat_messages (session_id, role, content, emotion, intent) VALUES (?, ?, ?, ?, ?)`).run(
-        message.sessionId, message.role, message.content, message.emotion, message.intent
-      );
+    if (!isSupabaseConfigured()) {
+      // 本地缓存作为降级
       const sessionMessages = this.workingMemory.get(message.sessionId) || [];
       sessionMessages.push(message);
       this.workingMemory.set(message.sessionId, sessionMessages);
-    } finally {
-      db.close();
+      return;
     }
+
+    const { error } = await supabase.from('chat_messages').insert({
+      session_id: message.sessionId,
+      role: message.role,
+      content: message.content,
+      emotion: message.emotion || null,
+      intent: message.intent || null
+    });
+
+    if (error) {
+      console.error('Failed to save message:', error);
+    }
+
+    // 更新本地缓存
+    const sessionMessages = this.workingMemory.get(message.sessionId) || [];
+    sessionMessages.push(message);
+    this.workingMemory.set(message.sessionId, sessionMessages);
   }
 
+  /**
+   * 获取最近的对话消息
+   */
   async getRecentMessages(sessionId: string, limit: number = 10): Promise<ChatMessage[]> {
+    // 检查缓存
     const cached = this.workingMemory.get(sessionId);
-    if (cached && cached.length >= limit) return cached.slice(-limit);
-    const db = getDb();
-    if (!db) return cached || [];
-    try {
-      const rows = db.prepare(`SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at DESC LIMIT ?`).all(sessionId, limit) as any[];
-      const messages = rows.reverse().map(row => ({
-        id: row.id, sessionId: row.session_id, role: row.role, content: row.content,
-        emotion: row.emotion, intent: row.intent, createdAt: row.created_at
-      }));
-      this.workingMemory.set(sessionId, messages);
-      return messages;
-    } finally {
-      db.close();
+    if (cached && cached.length >= limit) {
+      return cached.slice(-limit);
     }
+
+    if (!isSupabaseConfigured()) {
+      return cached || [];
+    }
+
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Failed to get messages:', error);
+      return cached || [];
+    }
+
+    const messages: ChatMessage[] = (data || []).reverse().map(row => ({
+      id: row.id,
+      sessionId: row.session_id,
+      role: row.role,
+      content: row.content,
+      emotion: row.emotion,
+      intent: row.intent,
+      createdAt: row.created_at
+    }));
+
+    this.workingMemory.set(sessionId, messages);
+    return messages;
   }
 
+  /**
+   * 获取最近的对话会话摘要
+   */
   async getRecentSessions(userId: string, days: number = 7): Promise<SessionSummary[]> {
-    const db = getDb();
-    if (!db) return [];
-    try {
-      const rows = db.prepare(`SELECT * FROM chat_sessions WHERE user_id = ? AND started_at >= datetime('now', ? || ' days') ORDER BY started_at DESC LIMIT 10`).all(userId, -days) as any[];
-      return rows.map(row => ({
-        sessionId: row.session_id, guru: row.guru || 'coach', summary: row.summary || '',
-        mainTopics: JSON.parse(row.topics || '[]'),
-        emotionalTrend: this.summarizeEmotionalJourney(JSON.parse(row.emotional_journey || '[]')),
-        date: row.started_at
-      }));
-    } finally {
-      db.close();
+    if (!isSupabaseConfigured()) return [];
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const { data, error } = await supabase
+      .from('chat_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('started_at', startDate.toISOString())
+      .order('started_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('Failed to get sessions:', error);
+      return [];
     }
+
+    return (data || []).map(row => ({
+      sessionId: row.session_id,
+      guru: row.guru || 'coach',
+      summary: row.summary || '',
+      mainTopics: row.topics || [],
+      emotionalTrend: this.summarizeEmotionalJourney(row.emotional_journey || []),
+      date: row.started_at
+    }));
   }
 
+  /**
+   * 获取用户情绪趋势
+   */
   async getEmotionalTrend(userId: string, days: number = 7): Promise<EmotionTrend> {
-    const db = getDb();
-    if (!db) return { trend: 'stable', recentEmotions: [], dominantEmotion: 'calm' };
-    try {
-      const rows = db.prepare(`SELECT m.emotion, m.created_at FROM chat_messages m JOIN chat_sessions s ON m.session_id = s.session_id WHERE s.user_id = ? AND m.role = 'user' AND m.emotion IS NOT NULL AND m.created_at >= datetime('now', ? || ' days') ORDER BY m.created_at DESC LIMIT 50`).all(userId, -days) as any[];
-      const emotions = rows.map(r => ({ emotion: r.emotion, timestamp: r.created_at }));
-      const emotionCounts: Record<string, number> = {};
-      emotions.forEach(e => { emotionCounts[e.emotion] = (emotionCounts[e.emotion] || 0) + 1; });
-      const dominantEmotion = Object.entries(emotionCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'calm';
-      return { trend: this.calculateEmotionTrend(emotions), recentEmotions: emotions.slice(0, 10), dominantEmotion };
-    } finally {
-      db.close();
+    if (!isSupabaseConfigured()) {
+      return { trend: 'stable', recentEmotions: [], dominantEmotion: 'calm' };
     }
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    // 获取最近的情绪记录
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select(`
+        emotion,
+        created_at,
+        chat_sessions!inner(user_id)
+      `)
+      .eq('chat_sessions.user_id', userId)
+      .eq('role', 'user')
+      .not('emotion', 'is', null)
+      .gte('created_at', startDate.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error('Failed to get emotional trend:', error);
+      return { trend: 'stable', recentEmotions: [], dominantEmotion: 'calm' };
+    }
+
+    const emotions: EmotionPoint[] = (data || []).map(r => ({
+      emotion: r.emotion,
+      timestamp: r.created_at
+    }));
+
+    // 计算主导情绪
+    const emotionCounts: Record<string, number> = {};
+    emotions.forEach(e => {
+      emotionCounts[e.emotion] = (emotionCounts[e.emotion] || 0) + 1;
+    });
+    const dominantEmotion = Object.entries(emotionCounts)
+      .sort((a, b) => b[1] - a[1])[0]?.[0] || 'calm';
+
+    return {
+      trend: this.calculateEmotionTrend(emotions),
+      recentEmotions: emotions.slice(0, 10),
+      dominantEmotion
+    };
   }
 
+  /**
+   * 获取用户画像
+   */
   async getUserProfile(userId: string): Promise<UserProfile | null> {
-    const db = getDb();
-    if (!db) return null;
-    try {
-      const row = db.prepare(`SELECT * FROM user_profiles WHERE user_id = ?`).get(userId) as any;
-      if (!row) return null;
-      return {
-        userId: row.user_id,
-        investmentStyle: JSON.parse(row.investment_style || '{}'),
-        emotionPatterns: JSON.parse(row.emotion_patterns || '{}'),
-        decisionPatterns: JSON.parse(row.decision_patterns || '{}'),
-        learningProgress: JSON.parse(row.learning_progress || '{}')
-      };
-    } finally {
-      db.close();
-    }
-  }
+    if (!isSupabaseConfigured()) return null;
 
-  async updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<void> {
-    const db = getDb();
-    if (!db) return;
-    try {
-      const existing = await this.getUserProfile(userId);
-      if (existing) {
-        const merged = {
-          investmentStyle: { ...existing.investmentStyle, ...updates.investmentStyle },
-          emotionPatterns: { ...existing.emotionPatterns, ...updates.emotionPatterns },
-          decisionPatterns: { ...existing.decisionPatterns, ...updates.decisionPatterns },
-          learningProgress: { ...existing.learningProgress, ...updates.learningProgress }
-        };
-        db.prepare(`UPDATE user_profiles SET investment_style = ?, emotion_patterns = ?, decision_patterns = ?, learning_progress = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?`).run(
-          JSON.stringify(merged.investmentStyle), JSON.stringify(merged.emotionPatterns),
-          JSON.stringify(merged.decisionPatterns), JSON.stringify(merged.learningProgress), userId
-        );
-      } else {
-        db.prepare(`INSERT INTO user_profiles (user_id, investment_style, emotion_patterns, decision_patterns, learning_progress) VALUES (?, ?, ?, ?, ?)`).run(
-          userId, JSON.stringify(updates.investmentStyle || {}), JSON.stringify(updates.emotionPatterns || {}),
-          JSON.stringify(updates.decisionPatterns || {}), JSON.stringify(updates.learningProgress || {})
-        );
+    const { data, error } = await supabase
+      .from('user_memories')
+      .select('*')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Failed to get user profile:', error);
+      return null;
+    }
+
+    if (!data || data.length === 0) return null;
+
+    // 组装用户画像
+    const profile: UserProfile = { userId };
+
+    for (const memory of data) {
+      switch (memory.memory_type) {
+        case 'investment_style':
+          profile.investmentStyle = memory.value;
+          break;
+        case 'emotion_patterns':
+          profile.emotionPatterns = memory.value;
+          break;
+        case 'decision_patterns':
+          profile.decisionPatterns = memory.value;
+          break;
+        case 'learning_progress':
+          profile.learningProgress = memory.value;
+          break;
       }
-    } finally {
-      db.close();
+    }
+
+    return profile;
+  }
+
+  /**
+   * 更新用户画像
+   */
+  async updateUserProfile(userId: string, updates: Partial<UserProfile>): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+
+    const updatePromises: Promise<unknown>[] = [];
+
+    if (updates.investmentStyle) {
+      updatePromises.push(this.upsertMemory(userId, 'investment_style', 'profile', updates.investmentStyle));
+    }
+    if (updates.emotionPatterns) {
+      updatePromises.push(this.upsertMemory(userId, 'emotion_patterns', 'profile', updates.emotionPatterns));
+    }
+    if (updates.decisionPatterns) {
+      updatePromises.push(this.upsertMemory(userId, 'decision_patterns', 'profile', updates.decisionPatterns));
+    }
+    if (updates.learningProgress) {
+      updatePromises.push(this.upsertMemory(userId, 'learning_progress', 'profile', updates.learningProgress));
+    }
+
+    await Promise.all(updatePromises);
+  }
+
+  /**
+   * 更新或插入用户记忆
+   */
+  private async upsertMemory(
+    userId: string,
+    memoryType: string,
+    key: string,
+    value: Record<string, unknown>
+  ): Promise<void> {
+    const { data: existing } = await supabase
+      .from('user_memories')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('memory_type', memoryType)
+      .single();
+
+    if (existing) {
+      await supabase
+        .from('user_memories')
+        .update({ value, updated_at: new Date().toISOString() })
+        .eq('id', existing.id);
+    } else {
+      await supabase.from('user_memories').insert({
+        user_id: userId,
+        memory_type: memoryType,
+        key,
+        value
+      });
     }
   }
 
+  /**
+   * 更新会话情绪
+   */
+  async updateSessionEmotion(sessionId: string, emotion: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+
+    const { data } = await supabase
+      .from('chat_sessions')
+      .select('emotional_journey')
+      .eq('session_id', sessionId)
+      .single();
+
+    const journey: EmotionPoint[] = data?.emotional_journey || [];
+    journey.push({ emotion, timestamp: new Date().toISOString() });
+
+    await supabase
+      .from('chat_sessions')
+      .update({ emotional_journey: journey })
+      .eq('session_id', sessionId);
+  }
+
+  /**
+   * 更新会话主题
+   */
+  async updateSessionTopics(sessionId: string, topics: string[]): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+
+    const { data } = await supabase
+      .from('chat_sessions')
+      .select('topics')
+      .eq('session_id', sessionId)
+      .single();
+
+    const existingTopics: string[] = data?.topics || [];
+    const mergedTopics = [...new Set([...existingTopics, ...topics])];
+
+    await supabase
+      .from('chat_sessions')
+      .update({ topics: mergedTopics })
+      .eq('session_id', sessionId);
+  }
+
+  // 辅助方法
   private summarizeEmotionalJourney(journey: EmotionPoint[]): string {
     if (!journey || journey.length === 0) return 'neutral';
     const lastEmotion = journey[journey.length - 1]?.emotion || 'calm';
@@ -304,32 +429,7 @@ export class MemoryManager {
     if (recentNegative > olderNegative + 1) return 'declining';
     return 'stable';
   }
-
-  async updateSessionEmotion(sessionId: string, emotion: string): Promise<void> {
-    const db = getDb();
-    if (!db) return;
-    try {
-      const row = db.prepare(`SELECT emotional_journey FROM chat_sessions WHERE session_id = ?`).get(sessionId) as any;
-      const journey: EmotionPoint[] = JSON.parse(row?.emotional_journey || '[]');
-      journey.push({ emotion, timestamp: new Date().toISOString() });
-      db.prepare(`UPDATE chat_sessions SET emotional_journey = ? WHERE session_id = ?`).run(JSON.stringify(journey), sessionId);
-    } finally {
-      db.close();
-    }
-  }
-
-  async updateSessionTopics(sessionId: string, topics: string[]): Promise<void> {
-    const db = getDb();
-    if (!db) return;
-    try {
-      const row = db.prepare(`SELECT topics FROM chat_sessions WHERE session_id = ?`).get(sessionId) as any;
-      const existingTopics: string[] = JSON.parse(row?.topics || '[]');
-      const mergedTopics = [...new Set([...existingTopics, ...topics])];
-      db.prepare(`UPDATE chat_sessions SET topics = ? WHERE session_id = ?`).run(JSON.stringify(mergedTopics), sessionId);
-    } finally {
-      db.close();
-    }
-  }
 }
 
+// 单例导出
 export const memoryManager = new MemoryManager();

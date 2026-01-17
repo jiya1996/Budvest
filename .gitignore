@@ -24,3 +24,6 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# Claude Code agent files
+.agent/
