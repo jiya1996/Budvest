@@ -1,0 +1,551 @@
+# BudVest 产品需求文档 (PRD)
+
+> **版本**: v1.0  
+> **更新日期**: 2026-01-20  
+> **状态**: MVP 规划阶段
+
+---
+
+## 1. 产品概述
+
+### 1.1 核心愿景
+
+**一句话定位**: 股市投资者的智能情绪伙伴——用 AI 陪伴帮助用户在市场波动中保持理性，降低情绪化交易风险。
+
+### 1.2 产品背景
+
+BudVest 是一款面向股市投资者的智能情绪陪伴与决策辅助产品。通过 AI 对话和情绪识别技术，为用户提供「市场数据分析 + 情绪辅导」的闭环体验。
+
+**核心价值主张**:
+- 降低用户情绪化交易风险，提升投资决策质量
+- 提供基于市场行情的情绪指数
+- 记录用户投资心理轨迹，促进持续成长
+
+### 1.3 用户画像
+
+| 维度 | 描述 |
+|------|------|
+| **年龄** | 25-45岁 |
+| **投资经验** | 无经验或者又少量经验，基础少 |
+| **核心痛点** | 市场波动时情绪失控（恐慌抛售/贪婪追高）|
+| **行为特征** | 每日查看行情，易受消息面影响 |
+| **期望价值** | 获得心理支持、专业视角、投资成长记录 |
+| **交互偏好** | 智能语音/文字交互 |
+
+---
+
+## 2. 产品路线图
+
+### 2.1 版本规划总览
+
+```
+V1 MVP ──────► V2 成长激励 ──────► V3 资产深度 ──────► V4 生态扩展
+(核心验证)      (用户粘性)         (信任深化)          (交易闭环)
+```
+
+---
+
+### 2.2 V1 MVP - 核心验证版
+
+**目标**: 验证「AI 情绪陪伴」对投资者的核心价值假设
+
+**时间规划**: 4-6 周
+
+#### 功能清单
+
+| 模块 | 功能 | 优先级 | 验收标准 |
+|------|------|--------|----------|
+| **Onboarding** | 投资目标选择 | P0 | 支持多选（长期持有/短期套利/自定义），数据持久化 |
+| | 持仓锚点设置 | P0 | 支持添加多只股票，标记「观望中/持有中」状态 |
+| **市场晴雨表** | 市场情绪指数展示 | P0 | 工作日显示看涨/看跌/震荡；节假日显示休市 |
+| | 数据源接入 | P0 | AKShare + DEXTER 调用成功率 > 95% |
+| **情绪对话** | 表情快捷入口 | P0 | 4种表情（恐慌/贪婪/生气/想复盘）触发对应对话 |
+| | 文字输入 | P0 | 支持关键词情绪识别 |
+| **AI 心理教练** | 情绪辅导对话 | P0 | 响应延迟 < 3s，上下文记忆 ≥ 5轮 |
+| **复盘日记** | 自动生成复盘 | P0 | 包含情绪标签、关键观点、行动建议 |
+
+#### 北极星指标
+
+| 指标 | 目标值 | 说明 |
+|------|--------|------|
+| 7日留存率 | > 30% | 验证产品核心价值 |
+| 人均周对话次数 | ≥ 3 次 | 验证用户使用频率 |
+
+#### 验收标准 Checklist
+
+- [ ] 用户可完成 Onboarding 流程并进入首页
+- [ ] 首页正确展示市场晴雨表（区分工作日/节假日）
+- [ ] 点击 4 种情绪表情可进入对应对话
+- [ ] AI 对话响应流畅，能识别用户情绪
+- [ ] 对话结束后自动生成复盘记录
+- [ ] 复盘记录可在历史列表中查看
+
+---
+
+### 2.3 V2 - 成长激励版
+
+**目标**: 通过游戏化机制提升用户粘性和活跃度
+
+**时间规划**: V1 发布后 4-6 周
+
+#### 功能清单
+
+| 模块 | 功能 | 优先级 | 验收标准 |
+|------|------|--------|----------|
+| **投资大师** | 单选大师对话 | P1 | 6位大师人设上线，风格差异明显 |
+| **荣誉勋章** | 成就徽章系统 | P1 | ≥ 10 种勋章类型 |
+| **打卡墙** | 打卡可视化 | P1 | 支持周/月/季度/年度视图 + 分享图片 |
+| **语音输入** | 语音转文字 | P2 | 识别准确率 > 85%，情绪识别支持 |
+
+#### 投资大师人设
+
+| 大师 | 投资风格 | 对话特点 |
+|------|----------|----------|
+| 沃伦·巴菲特 | 价值投资 | 长期视角，基本面分析 |
+| 查理·芒格 | 多元思维 | 逆向思考，心理学视角 |
+| 乔治·索罗斯 | 宏观投机 | 市场情绪，反身性理论 |
+| 雷·达里奥 | 全天候策略 | 风险平价，原则思维 |
+| 彼得·林奇 | 成长投资 | 生活选股，PEG 估值 |
+| 凯西·伍德 | 颠覆创新 | 科技趋势，长期愿景 |
+
+#### 北极星指标
+
+| 指标 | 目标值 |
+|------|--------|
+| 30日留存率 | > 25% |
+| 勋章获取覆盖率 | > 60% |
+
+---
+
+### 2.4 V3 - 资产深度版
+
+**目标**: 建立用户信任后，提供更深度的资产管理服务
+
+**时间规划**: V2 发布后 6-8 周
+
+#### 功能清单
+
+| 模块 | 功能 | 优先级 | 验收标准 |
+|------|------|--------|----------|
+| **多大师讨论** | 多选大师互相讨论 | P2 | 2-3 位大师观点交锋 |
+| **资产明细** | 持仓/盈亏展示 | P1 | 用户授权后展示 |
+| **持仓管理** | 语音/文字修改 | P2 | 操作确认机制 |
+| **社区功能** | 用户互联 | P3 | 内容审核机制 |
+
+---
+
+### 2.5 V4 - 生态扩展版
+
+**目标**: 打通交易闭环，扩展市场覆盖
+
+#### 功能清单
+
+| 模块 | 功能 | 优先级 | 验收标准 |
+|------|------|--------|----------|
+| **券商直连** | API 对接 | P3 | ≥ 2 家券商 |
+| **港美股** | 数据源扩展 | P3 | 主流港美股覆盖 |
+| **大师扩展** | 持续新增 | P3 | 季度 +2-3 位 |
+
+---
+
+## 3. 系统架构
+
+### 3.1 架构总览
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        客户端层 (PWA)                            │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
+│  │  React/Next │  │   Service   │  │    本地     │              │
+│  │     UI      │  │   Worker    │  │    缓存     │              │
+│  └─────────────┘  └─────────────┘  └─────────────┘              │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Vercel 托管层                               │
+│  ┌─────────────────────┐  ┌─────────────────────┐               │
+│  │  Next.js API Routes │  │   Edge Functions    │               │
+│  └─────────────────────┘  └─────────────────────┘               │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
+│   Supabase 后端   │ │   AI 服务    │ │    数据服务      │
+│  ┌────────────┐  │ │ ┌──────────┐ │ │  ┌────────────┐  │
+│  │    Auth    │  │ │ │ LLM API  │ │ │  │  AKShare   │  │
+│  ├────────────┤  │ │ │(Claude/  │ │ │  │  (A股行情)  │  │
+│  │ PostgreSQL │  │ │ │  GPT)    │ │ │  ├────────────┤  │
+│  ├────────────┤  │ │ ├──────────┤ │ │  │   DEXTER   │  │
+│  │  Realtime  │  │ │ │  Prompt  │ │ │  │  (财务分析) │  │
+│  ├────────────┤  │ │ │  管理    │ │ │  ├────────────┤  │
+│  │  Storage   │  │ │ ├──────────┤ │ │  │  港美股API │  │
+│  └────────────┘  │ │ │ 对话记忆 │ │ │  │   (待接入)  │  │
+└──────────────────┘ │ └──────────┘ │ │  └────────────┘  │
+                     └──────────────┘ └──────────────────┘
+```
+
+### 3.2 技术选型
+
+| 层级 | 技术选型 | 选型理由 |
+|------|----------|----------|
+| **前端框架** | Next.js 14 (App Router) | SSR + API Routes 一体化，PWA 支持好 |
+| **UI 组件库** | Tailwind CSS + shadcn/ui | 快速开发，设计一致性 |
+| **前端部署** | Vercel | 与 Next.js 深度集成，边缘函数支持 |
+| **后端服务** | Supabase | Auth + DB + Realtime + Storage 全套方案 |
+| **数据库** | PostgreSQL (Supabase) | 关系型数据，Supabase 原生支持 |
+| **AI 服务** | Claude API / OpenAI | 对话质量优先，支持流式输出 |
+| **A股数据** | AKShare | 开源免费，数据覆盖全面 |
+| **财务分析** | DEXTER | 开源专业财务指标分析 |
+
+---
+
+## 4. 核心业务流程
+
+### 4.1 用户首次使用流程
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant App as PWA
+    participant Auth as Supabase Auth
+    participant DB as PostgreSQL
+    
+    U->>App: 打开应用
+    App->>Auth: 检查登录状态
+    
+    alt 未登录（游客模式）
+        Auth-->>App: 返回游客状态
+        App->>U: 展示 Onboarding 引导
+        U->>App: 选择投资目标（支持多选）
+        U->>App: 添加关注股票
+        App->>DB: 存储用户偏好（本地优先）
+    else 已登录
+        Auth-->>App: 返回用户信息
+        App->>DB: 获取用户配置
+    end
+    
+    App->>U: 进入首页（市场晴雨表）
+```
+
+### 4.2 AI 情绪对话流程
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant App as PWA
+    participant API as Next.js API
+    participant AI as LLM
+    participant Market as AKShare
+    participant DB as PostgreSQL
+
+    U->>App: 点击情绪表情 / 输入文字
+    App->>API: 发送对话请求
+    
+    par 并行获取上下文
+        API->>DB: 获取用户上下文（持仓/历史）
+        API->>Market: 获取关注股票实时行情
+    end
+    
+    API->>AI: 组装 Prompt + 上下文
+    AI-->>API: 流式返回响应（SSE）
+    API-->>App: 推送响应内容
+    App->>U: 实时展示 AI 回复
+    
+    U->>App: 结束对话
+    App->>API: 触发复盘生成
+    API->>AI: 生成复盘摘要
+    API->>DB: 存储对话记录 + 复盘
+    App->>U: 展示复盘卡片
+```
+
+### 4.3 市场晴雨表数据流
+
+```mermaid
+flowchart LR
+    subgraph 数据采集
+        AK[AKShare API]
+        DX[DEXTER 分析]
+    end
+
+    subgraph 数据处理
+        AGG[数据聚合服务]
+        SENT[情绪计算引擎]
+    end
+
+    subgraph 数据存储
+        CACHE[(Edge Cache)]
+        DB[(PostgreSQL)]
+    end
+
+    subgraph 展示层
+        API[REST API]
+        UI[前端组件]
+    end
+
+    AK --> AGG
+    DX --> AGG
+    AGG --> SENT
+    SENT --> CACHE
+    SENT --> DB
+    CACHE --> API
+    API --> UI
+```
+
+---
+
+## 5. 数据模型设计
+
+### 5.1 核心实体
+
+#### 用户配置 (user_profiles)
+
+```sql
+CREATE TABLE user_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id),
+    investment_goals TEXT[] NOT NULL DEFAULT '{}',
+    custom_goal TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### 持仓锚点 (stock_anchors)
+
+```sql
+CREATE TABLE stock_anchors (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id),
+    stock_code VARCHAR(10) NOT NULL,
+    stock_name VARCHAR(50) NOT NULL,
+    status VARCHAR(20) DEFAULT 'watching' CHECK (status IN ('watching', 'holding')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### 对话会话 (chat_sessions)
+
+```sql
+CREATE TABLE chat_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id),
+    emotion_trigger VARCHAR(20) NOT NULL,
+    status VARCHAR(20) DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    ended_at TIMESTAMPTZ
+);
+```
+
+#### 对话消息 (chat_messages)
+
+```sql
+CREATE TABLE chat_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES chat_sessions(id),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant')),
+    content TEXT NOT NULL,
+    emotion_detected VARCHAR(50),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### 复盘记录 (review_summaries)
+
+```sql
+CREATE TABLE review_summaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES chat_sessions(id) UNIQUE,
+    user_id UUID REFERENCES auth.users(id),
+    emotion_tags TEXT[] DEFAULT '{}',
+    key_insights TEXT[] DEFAULT '{}',
+    action_suggestions TEXT[] DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 5.2 TypeScript 类型定义
+
+```typescript
+// 投资目标类型
+type InvestmentGoal = 'long_term' | 'short_term' | 'custom';
+
+// 股票状态
+type StockStatus = 'watching' | 'holding';
+
+// 情绪触发类型
+type EmotionTrigger = 'panic' | 'greed' | 'angry' | 'review' | 'text';
+
+// 市场情绪
+type MarketSentiment = 'bullish' | 'bearish' | 'neutral';
+
+// 用户配置
+interface UserProfile {
+  id: string;
+  user_id: string;
+  investment_goals: InvestmentGoal[];
+  custom_goal?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// 持仓锚点
+interface StockAnchor {
+  id: string;
+  user_id: string;
+  stock_code: string;
+  stock_name: string;
+  status: StockStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+// 对话会话
+interface ChatSession {
+  id: string;
+  user_id: string;
+  emotion_trigger: EmotionTrigger;
+  status: 'active' | 'ended';
+  created_at: string;
+  ended_at?: string;
+}
+
+// 对话消息
+interface ChatMessage {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  emotion_detected?: string;
+  created_at: string;
+}
+
+// 复盘摘要
+interface ReviewSummary {
+  id: string;
+  session_id: string;
+  user_id: string;
+  emotion_tags: string[];
+  key_insights: string[];
+  action_suggestions: string[];
+  created_at: string;
+}
+
+// 市场情绪数据
+interface MarketSentimentData {
+  stock_code: string;
+  stock_name: string;
+  sentiment: MarketSentiment;
+  sentiment_score: number;  // -100 ~ 100
+  is_trading_day: boolean;
+  updated_at: string;
+}
+```
+
+---
+
+## 6. API 契约
+
+### 6.1 API 总览
+
+| 端点 | 方法 | 描述 | 优先级 |
+|------|------|------|--------|
+| `/api/auth/*` | * | Supabase Auth 代理 | P0 |
+| `/api/user/profile` | GET/PUT | 用户配置管理 | P0 |
+| `/api/user/stocks` | GET/POST/DELETE | 持仓锚点 CRUD | P0 |
+| `/api/market/sentiment` | GET | 市场情绪指数 | P0 |
+| `/api/market/status` | GET | 交易日状态 | P0 |
+| `/api/chat/sessions` | POST | 创建对话会话 | P0 |
+| `/api/chat/sessions/[id]` | GET/PATCH | 会话详情/结束会话 | P0 |
+| `/api/chat/messages` | POST | 发送消息（流式） | P0 |
+| `/api/reviews` | GET | 复盘列表 | P0 |
+| `/api/reviews/[id]` | GET | 复盘详情 | P0 |
+
+### 6.2 核心接口定义
+
+#### 获取市场情绪
+
+```typescript
+// GET /api/market/sentiment?stocks=600519,000858
+
+interface MarketSentimentResponse {
+  data: MarketSentimentData[];
+  is_trading_day: boolean;
+  updated_at: string;
+}
+```
+
+#### 创建对话会话
+
+```typescript
+// POST /api/chat/sessions
+
+interface CreateSessionRequest {
+  emotion_trigger: EmotionTrigger;
+}
+
+interface CreateSessionResponse {
+  session_id: string;
+  created_at: string;
+}
+```
+
+#### 发送消息（流式）
+
+```typescript
+// POST /api/chat/messages
+
+interface SendMessageRequest {
+  session_id: string;
+  content: string;
+}
+
+// 响应为 SSE 流
+// event: message
+// data: {"content": "...", "done": false}
+```
+
+---
+
+## 7. 风险评估与应对
+
+| 风险类别 | 风险描述 | 影响程度 | 应对策略 |
+|----------|----------|----------|----------|
+| **技术风险** | AKShare 接口不稳定 | 高 | 本地缓存 + 降级提示 + 备用数据源 |
+| | LLM 响应延迟 | 中 | 流式输出 + 骨架屏 + 超时重试 |
+| | PWA 兼容性问题 | 低 | 核心功能 Web 优先，增强功能渐进式 |
+| **产品风险** | 情绪识别不准确 | 中 | 用户可手动修正情绪标签 |
+| | 复盘质量不稳定 | 中 | Prompt 迭代优化 + 用户反馈机制 |
+| **用户风险** | 用户隐私顾虑 | 高 | 渐进式信任设计，初期不强制要求持仓数据 |
+| | 投资建议合规风险 | 高 | 明确免责声明，定位为情绪辅导而非投资建议 |
+
+---
+
+## 8. 附录
+
+### 8.1 情绪关键词映射表
+
+| 情绪类型 | 触发关键词示例 |
+|----------|----------------|
+| 恐慌 (panic) | 亏了、跌惨了、崩盘、割肉、慌、怎么办 |
+| 贪婪 (greed) | 涨疯了、加仓、全仓、暴富、发财 |
+| 愤怒 (angry) | 气死、垃圾、坑人、被割、黑幕 |
+| 复盘 (review) | 复盘、总结、反思、回顾、教训 |
+
+### 8.2 相关文档索引
+
+- 产品愿景: `openspec/specs/product-vision.md`
+- 功能需求: `openspec/specs/requirements/functional-requirements.md`
+- 系统架构: `openspec/specs/architecture/system-architecture.md`
+- AI 系统规范: `openspec/specs/ai-system/spec.md`
+- 数据库规范: `openspec/specs/database/spec.md`
+
+---
+
+## 变更记录
+
+| 版本 | 日期 | 变更内容 | 作者 |
+|------|------|----------|------|
+| v1.0 | 2026-01-20 | 初始版本，MVP 规划完成 | AI Product Designer |
