@@ -42,6 +42,16 @@ flowchart TB
 | 每日情绪打卡 | [emotion-checkin-flow.md](./emotion-checkin-flow.md) | P0 | ✅ 已完成 |
 | 游客转化注册 | [guest-conversion-flow.md](./guest-conversion-flow.md) | P1 | ✅ 已完成 |
 
+2026-1-21 jiya修改后版本
+
+| 流程 | 文件 | 优先级 | 状态 |
+|------|------|--------|------|
+| 游客启动与初心设定 | [onboarding-flow.md](./onboarding-flow.md) | P0 | ✅ 已完成 |
+| AI 情绪对话 | chat-flow.md | P0 | 📋 待补充 |
+| 投资心理复盘 | review-flow.md | P0 | 📋 待补充 |
+| 每日情绪打卡 | emotion-checkin-flow.md | P0 | 🟡 CHANGE-002 |
+| 游客转化注册 | guest-conversion-flow.md | P1 | 📋 待补充 |
+
 ---
 
 ## 使用指南
