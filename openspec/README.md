@@ -40,7 +40,11 @@ openspec/specs/
 │   ├── emotion-checkin-flow.md          (情绪打卡流程)
 │   └── guest-conversion-flow.md         (游客转化流程)
 │
+<<<<<<< HEAD
 ├── ui-specifications/                   📋 待补充
+=======
+├── ui-specifications/                   ✅ 已完成
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 │   ├── README.md                        (设计系统总览)
 │   ├── design-tokens.md                 (颜色、字体、间距)
 │   ├── components.md                    (通用组件规范)

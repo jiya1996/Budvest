@@ -1,6 +1,10 @@
 'use client';
 
+<<<<<<< HEAD
 import { useState, useEffect, useRef } from 'react';
+=======
+import { useState, useEffect, useRef, Suspense } from 'react';
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { storage } from '@/lib/storage';
@@ -8,7 +12,11 @@ import { ChatMessage, ChatResponse, UserConfig, MarketContext } from '@/lib/type
 import Card from '@/components/Card';
 import BottomNav from '@/components/BottomNav';
 
+<<<<<<< HEAD
 export default function ChatPage() {
+=======
+function ChatPageContent() {
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
   const router = useRouter();
   const searchParams = useSearchParams();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -382,3 +390,18 @@ export default function ChatPage() {
     </>
   );
 }
+<<<<<<< HEAD
+=======
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center items-center min-h-screen bg-slate-200">
+        <div className="text-slate-500">加载中...</div>
+      </div>
+    }>
+      <ChatPageContent />
+    </Suspense>
+  );
+}
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)

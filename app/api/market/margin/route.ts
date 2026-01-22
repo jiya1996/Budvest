@@ -28,14 +28,22 @@ export async function GET(request: NextRequest) {
 
   try {
     // 检查数据库是否可用
+<<<<<<< HEAD
     // Database check removed
+=======
+    if (!isDatabaseAvailable()) {
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
       return NextResponse.json({
         error: '数据库不可用，请先启动数据采集服务',
         hint: 'cd data-service && python run.py'
       }, { status: 503 });
     }
 
+<<<<<<< HEAD
     const data = getMarginTrading(symbol, limit);
+=======
+    const data = await getMarginTrading(symbol, limit);
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 
     if (!data || data.length === 0) {
       return NextResponse.json({

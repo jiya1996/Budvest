@@ -1,0 +1,457 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { findStockByName, getStockNameList } from '@/lib/stock-utils';
+
+interface ParsedCommand {
+  stockName: string;
+  userIntent: '用户增持' | '用户减持' | '用户观望' | '用户删除' | '用户删除持有' | '用户删除观望' | '用户全部删除' | '用户更新';
+  cost: number;
+  time: string;
+  price: number;
+  shares: number;
+  holdingDays: number;
+  stockNames?: string[];
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { text, portfolio } = await request.json();
+
+    if (!text || typeof text !== 'string') {
+      return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      // 如果没有API Key，使用简单的规则匹配作为后备
+      return NextResponse.json({
+        command: parseCommandFallback(text),
+        fallback: true
+      });
+    }
+
+    // 使用OpenAI API理解指令
+    const availableStocks = getStockNameList();
+    const systemPrompt = `你是投资组合管理助手。解析用户的自然语言指令为结构化数据。
+
+可用股票列表：
+${availableStocks.join(', ')}
+
+用户当前持仓：
+${JSON.stringify(portfolio?.map((p: any) => ({ symbol: p.symbol, name: p.name })) || [])}
+
+返回JSON格式，包含以下字段：
+- stockName: 股票名称（必须从可用股票列表中选择，如"Tesla"、"特斯拉"、"TSLA"都识别为Tesla）
+- userIntent: 用户意图（"用户增持"、"用户减持"、"用户观望"、"用户删除"、"用户更新"等）
+- price: 每股价格（元/股，如果用户说"花了1000买100股"，price=1000/100=10）
+- shares: 股数
+- cost: 总成本（price × shares，如果用户直接说总价则使用总价）
+- time: 时间（"今日"、"昨天"等，默认"今日"）
+- holdingDays: 持有天数（默认0）
+
+关键规则：
+1. **股票名称识别**：严格匹配可用股票列表，"特斯拉"="Tesla"="TSLA"
+2. **价格解析**：
+   - "花了X买Y股" → price=X/Y, cost=X
+   - "X元买Y股" → price=X, cost=X×Y
+   - "买Y股，成本X" → price=X, cost=X×Y
+3. **股数解析**：任何"X股"都解析为shares=X
+4. **缺失字段**：返回0或"未知"，不返回null
+
+示例：
+输入："买入100股特斯拉"
+输出：{"stockName":"Tesla","userIntent":"用户增持","cost":0,"time":"今日","price":0,"shares":100,"holdingDays":0}
+
+输入："花了1000买100股苹果"
+输出：{"stockName":"Apple","userIntent":"用户增持","cost":1000,"time":"今日","price":10,"shares":100,"holdingDays":0}
+
+输入："400元买入100股英伟达"
+输出：{"stockName":"NVIDIA","userIntent":"用户增持","cost":40000,"time":"今日","price":400,"shares":100,"holdingDays":0}
+
+只返回JSON，不要其他文字。`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: text },
+        ],
+        temperature: 0.3,
+        response_format: { type: 'json_object' },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('OpenAI API error:', errorData);
+      // 如果API失败，使用后备解析
+      return NextResponse.json({
+        command: parseCommandFallback(text),
+        fallback: true
+      });
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content;
+    
+    if (!content) {
+      return NextResponse.json({
+        command: parseCommandFallback(text),
+        fallback: true
+      });
+    }
+
+    try {
+      const command = JSON.parse(content);
+
+      // Validate stock name against database
+      if (command.stockName && command.stockName !== '全部') {
+        const stock = findStockByName(command.stockName);
+        if (!stock) {
+          console.warn(`Stock not found: ${command.stockName}`);
+          return NextResponse.json({
+            command: null,
+            error: `未找到股票：${command.stockName}`,
+            fallback: false
+          });
+        }
+        // Normalize stock name to English name from database
+        command.stockName = stock.name;
+      }
+
+      return NextResponse.json({ command, fallback: false });
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError);
+      return NextResponse.json({
+        command: parseCommandFallback(text),
+        fallback: true
+      });
+    }
+  } catch (error) {
+    console.error('Error parsing command:', error);
+    // 即使发生错误，也尝试使用后备解析
+    const { text } = await request.json().catch(() => ({ text: '' }));
+    const fallbackCommand = parseCommandFallback(text);
+    return NextResponse.json(
+      {
+        command: fallbackCommand,
+        fallback: true,
+        error: 'Failed to parse command with AI, using fallback'
+      }
+    );
+  }
+}
+
+// 后备解析函数（规则匹配）
+function parseCommandFallback(text: string): ParsedCommand | null {
+  const lowerText = text.toLowerCase();
+
+  // 尝试从文本中提取股票名称
+  let stockName = '';
+  const stockNamePattern = /(特斯拉|tesla|tsla|苹果|apple|aapl|英伟达|nvidia|nvda|微软|microsoft|msft|阿里巴巴|阿里|alibaba|baba|谷歌|google|goog|亚马逊|amazon|amzn|meta|facebook|脸书)/i;
+  const stockMatch = text.match(stockNamePattern);
+  if (stockMatch) {
+    const stock = findStockByName(stockMatch[1]);
+    if (stock) {
+      stockName = stock.name;
+    }
+  }
+
+  if (!stockName) return null;
+
+  // 买入模式（完整或不完整）
+  const buyKeywords = ['买入', '购买', '买了', '加仓', '增持', '买'];
+  const hasBuyIntent = buyKeywords.some(keyword => lowerText.includes(keyword));
+  
+  if (hasBuyIntent) {
+    // 模式1: "花了1000买了100股" 或 "用1000元买了100股" 或 "投入1000元，买了100股"（总价模式）
+    // 总价关键词：花了、用了、投入、总价、总成本、总共、一共、合计
+    const totalPricePattern = /(?:花了|用了|投入|总价|总成本|总共|一共|合计)(\d+(?:\.\d+)?)(?:元|块|美元|港币|HKD|USD|¥|\$)?.*?(?:买了|买入|购买|加仓|增持|买)(\d+)(?:股)/;
+    const totalPriceMatch = lowerText.match(totalPricePattern);
+    if (totalPriceMatch) {
+      const totalCost = parseFloat(totalPriceMatch[1]); // 总价
+      const shares = parseFloat(totalPriceMatch[2]); // 股数
+      const pricePerShare = shares > 0 ? totalCost / shares : 0; // 每股价格 = 总价 / 股数
+      return {
+        stockName,
+        userIntent: '用户增持' as const,
+        cost: totalCost, // 使用总价
+        time: lowerText.includes('今天') ? '今日' : lowerText.includes('昨天') ? '昨天' : '今日',
+        price: pricePerShare, // 计算出的每股价格
+        shares,
+        holdingDays: 0,
+      };
+    }
+    
+    // 模式2: "买了300股，成本400" 或 "买入100股，成本50元"（有股数和每股成本）
+    const sharesWithCostPattern = /(?:买了|买入|购买|加仓|增持|买)(\d+)(?:股).*?(?:成本|每股成本)(?:是|为)?(\d+(?:\.\d+)?)(?:元|块)?/;
+    const sharesWithCostMatch = lowerText.match(sharesWithCostPattern);
+    if (sharesWithCostMatch) {
+      const shares = parseFloat(sharesWithCostMatch[1]);
+      const pricePerShare = parseFloat(sharesWithCostMatch[2]); // 每股成本
+      const totalCost = pricePerShare * shares; // 总成本 = 每股成本 × 股数
+      return {
+        stockName,
+        userIntent: '用户增持' as const,
+        cost: totalCost,
+        time: lowerText.includes('今天') ? '今日' : lowerText.includes('昨天') ? '昨天' : '今日',
+        price: pricePerShare, // 每股成本
+        shares,
+        holdingDays: 0,
+      };
+    }
+    
+    // 模式3: "买了300股" 或 "买入100股"（只有股数，没有价格和成本）
+    const sharesOnlyPattern = /(?:买了|买入|购买|加仓|增持|买)(\d+)(?:股)/;
+    const sharesOnlyMatch = lowerText.match(sharesOnlyPattern);
+    if (sharesOnlyMatch) {
+      const shares = parseFloat(sharesOnlyMatch[1]);
+      return {
+        stockName,
+        userIntent: '用户增持' as const,
+        cost: 0,
+        time: lowerText.includes('今天') ? '今日' : lowerText.includes('昨天') ? '昨天' : '今日',
+        price: 0,
+        shares,
+        holdingDays: 0,
+      };
+    }
+    
+    // 模式4: "400元买入100股" 或 "以350元的价格买了50股"（有单价和股数）
+    // 注意：这个模式需要判断是单价还是总价，如果数字明显大于股数，可能是总价
+    const buyPattern = /(?:我|今天|刚才)?(?:以|用)?(\d+(?:\.\d+)?)(?:元|块|美元|港币|HKD|USD|¥|\$)?(?:买入|购买|买了|加仓|增持|买)(\d+)?(?:股)?/;
+    const buyMatch = lowerText.match(buyPattern);
+    if (buyMatch) {
+      const firstNumber = parseFloat(buyMatch[1]);
+      const shares = buyMatch[2] ? parseFloat(buyMatch[2]) : 0;
+      
+      // 判断是总价还是单价：
+      // 如果数字明显大于股数（例如1000 > 100），且没有单价关键词，可能是总价
+      // 如果有"以X元的价格"这种明确表示单价的表达，则是单价
+      const hasPriceKeyword = lowerText.includes('价格') || lowerText.includes('单价') || lowerText.includes('成本价');
+      const isTotalPrice = !hasPriceKeyword && shares > 0 && firstNumber > shares * 10; // 如果总价明显大于股数的10倍，可能是总价
+      
+      if (isTotalPrice && shares > 0) {
+        // 总价模式
+        const pricePerShare = firstNumber / shares;
+        return {
+          stockName,
+          userIntent: '用户增持' as const,
+          cost: firstNumber, // 总价
+          time: lowerText.includes('今天') ? '今日' : lowerText.includes('昨天') ? '昨天' : '今日',
+          price: pricePerShare, // 计算出的每股价格
+          shares,
+          holdingDays: 0,
+        };
+      } else {
+        // 单价模式
+        const cost = shares > 0 ? firstNumber * shares : firstNumber;
+        return {
+          stockName,
+          userIntent: '用户增持' as const,
+          cost,
+          time: lowerText.includes('今天') ? '今日' : lowerText.includes('昨天') ? '昨天' : '今日',
+          price: firstNumber, // 单价
+          shares,
+          holdingDays: 0,
+        };
+      }
+    }
+    
+    // 不完整的买入指令，只识别了股票和意图
+    return {
+      stockName,
+      userIntent: '用户增持' as const,
+      cost: 0,
+      time: lowerText.includes('今天') ? '今日' : lowerText.includes('昨天') ? '昨天' : '今日',
+      price: 0,
+      shares: 0,
+      holdingDays: 0,
+    };
+  }
+
+  // 卖出模式（完整或不完整）
+  const sellKeywords = ['卖出', '出售', '卖了', '减仓', '减持', '卖'];
+  const hasSellIntent = sellKeywords.some(keyword => lowerText.includes(keyword));
+  
+  if (hasSellIntent) {
+    const sellPattern = /(?:卖出|出售|卖了|减仓|减持|卖)(\d+)?(?:股)?/;
+    const sellMatch = lowerText.match(sellPattern);
+    if (sellMatch) {
+      const shares = sellMatch[1] ? parseFloat(sellMatch[1]) : 0;
+      return {
+        stockName,
+        userIntent: '用户减持',
+        cost: 0,
+        time: '今日',
+        price: 0,
+        shares,
+        holdingDays: 0,
+      };
+    } else {
+      // 不完整的卖出指令，只识别了股票和意图
+      return {
+        stockName,
+        userIntent: '用户减持',
+        cost: 0,
+        time: '今日',
+        price: 0,
+        shares: 0,
+        holdingDays: 0,
+      };
+    }
+  }
+
+  // 删除模式
+  const deleteKeywords = ['删除', '移除', '去掉', '删除股票', '移除股票'];
+  const hasDeleteIntent = deleteKeywords.some(keyword => lowerText.includes(keyword));
+  
+  if (hasDeleteIntent) {
+    // 检查是否是全部删除
+    if (lowerText.includes('全部') || lowerText.includes('所有') || lowerText.includes('清空')) {
+      return {
+        stockName: '全部',
+        userIntent: '用户全部删除',
+        cost: 0,
+        time: '今日',
+        price: 0,
+        shares: 0,
+        holdingDays: 0,
+      };
+    }
+    
+    // 检查是否是删除持有中的股票
+    if (lowerText.includes('持有') || lowerText.includes('持仓')) {
+      return {
+        stockName,
+        userIntent: '用户删除持有',
+        cost: 0,
+        time: '今日',
+        price: 0,
+        shares: 0,
+        holdingDays: 0,
+      };
+    }
+    
+    // 检查是否是删除观望中的股票
+    if (lowerText.includes('观望') || lowerText.includes('自选')) {
+      return {
+        stockName,
+        userIntent: '用户删除观望',
+        cost: 0,
+        time: '今日',
+        price: 0,
+        shares: 0,
+        holdingDays: 0,
+      };
+    }
+    
+    // 检查是否包含多个股票（用"和"、"、"、"、"分隔）
+    const multipleStocksPattern = /(?:删除|移除|去掉)(.+?)(?:股票|股)?$/;
+    const multipleMatch = lowerText.match(multipleStocksPattern);
+    if (multipleMatch) {
+      const stocksText = multipleMatch[1];
+      // 尝试分割多个股票名称
+      const separators = ['和', '、', ',', '，', '以及'];
+      let stockNames: string[] = [stockName];
+      
+      for (const sep of separators) {
+        if (stocksText.includes(sep)) {
+          const parts = stocksText.split(sep).map(s => s.trim());
+          stockNames = parts.filter(s => s.length > 0);
+          break;
+        }
+      }
+      
+      // 如果只有一个股票，返回单个删除；如果有多个，返回批量删除
+      if (stockNames.length > 1) {
+        return {
+          stockName: stockNames[0],
+          userIntent: '用户删除',
+          cost: 0,
+          time: '今日',
+          price: 0,
+          shares: 0,
+          holdingDays: 0,
+          stockNames: stockNames,
+        };
+      }
+    }
+    
+    // 普通删除
+    return {
+      stockName,
+      userIntent: '用户删除',
+      cost: 0,
+      time: '今日',
+      price: 0,
+      shares: 0,
+      holdingDays: 0,
+    };
+  }
+  
+  // 添加股票模式（明确说"添加"、"加入持仓"等）
+  const addKeywords = ['添加', '加入持仓', '加入投资', '新增'];
+  const hasAddIntent = addKeywords.some(keyword => lowerText.includes(keyword));
+  if (hasAddIntent) {
+    // 尝试提取股数和价格
+    const sharesPattern = /(\d+)(?:股)/;
+    const sharesMatch = lowerText.match(sharesPattern);
+    const shares = sharesMatch ? parseFloat(sharesMatch[1]) : 0;
+    
+    const pricePattern = /(\d+)(?:元|块)/;
+    const priceMatch = lowerText.match(pricePattern);
+    const price = priceMatch ? parseFloat(priceMatch[1]) : 0;
+    const cost = shares > 0 && price > 0 ? shares * price : 0;
+    
+    return {
+      stockName,
+      userIntent: '用户增持',
+      cost,
+      time: lowerText.includes('今天') ? '今日' : lowerText.includes('昨天') ? '昨天' : '今日',
+      price,
+      shares,
+      holdingDays: 0,
+    };
+  }
+
+  // 观望模式
+  if (lowerText.includes('观望') || lowerText.includes('自选')) {
+    return {
+      stockName,
+      userIntent: '用户观望',
+      cost: 0,
+      time: '今日',
+      price: 0,
+      shares: 0,
+      holdingDays: 0,
+    };
+  }
+
+  // 更新模式
+  const updatePattern = /(?:持有|已经持有)(\d+)(?:天|日).*?(?:成本|投入)(?:是|为)?(\d+)(?:元|块)?/;
+  const updateMatch = lowerText.match(updatePattern);
+  if (updateMatch) {
+    const holdingDays = parseFloat(updateMatch[1]);
+    const cost = parseFloat(updateMatch[2]);
+    return {
+      stockName,
+      userIntent: '用户更新',
+      cost,
+      time: '今日',
+      price: 0,
+      shares: 0,
+      holdingDays,
+    };
+  }
+
+  // 如果识别了股票但没有明确的意图，返回null
+  return null;
+}
+
+

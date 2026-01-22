@@ -3,7 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortfolioItem } from '@/lib/types';
+<<<<<<< HEAD
 import { TrendingUp, TrendingDown, Target, Eye, Wallet, Plus, X, Mic, Check } from 'lucide-react';
+=======
+import { TrendingUp, TrendingDown, Target, Eye, Wallet, Plus, X, Mic, Check, Type, Send } from 'lucide-react';
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 import { storage } from '@/lib/storage';
 import { STOCK_DATABASE } from '@/lib/data';
 import { getCurrencySymbol, formatPrice } from '@/lib/currency';
@@ -78,6 +82,10 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
   const [costPrice, setCostPrice] = useState('');
   
   // 语音输入相关状态
+<<<<<<< HEAD
+=======
+  const [inputMode, setInputMode] = useState<'text' | 'voice'>('text'); // 输入模式：文本或录音
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
   const [isRecording, setIsRecording] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [transcript, setTranscript] = useState('');
@@ -762,7 +770,11 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
   return (
     <div
       className="flex flex-col h-full relative overflow-hidden"
+<<<<<<< HEAD
       style={{ background: 'linear-gradient(180deg, #E8F0FB 0%, #F0EBF8 50%, #FBF6F0 100%)' }}
+=======
+      style={{ background: 'linear-gradient(180deg, #E8F0FB 0%, #F0EBF8 50%, #FBF6F0 100%)', minHeight: '100%' }}
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
     >
       {/* 装饰性背景 */}
       <div className="absolute top-10 right-0 w-40 h-40 rounded-full bg-gradient-to-br from-green-100/50 to-emerald-200/50 blur-3xl" />
@@ -1089,6 +1101,7 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
       {/* 编辑弹窗 */}
       {showEditModal && editingStock && (
         <div
+<<<<<<< HEAD
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={handleCloseEditModal}
         >
@@ -1112,6 +1125,28 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
               >
                 <X size={20} className="text-gray-400" />
               </button>
+=======
+          className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
+          onClick={handleCloseEditModal}
+        >
+          {/* 弹窗外层容器：限制宽度与手机容器一致 */}
+          <div className="w-full max-w-md mx-auto">
+            <div
+              className="bg-white rounded-2xl p-6 w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxHeight: 'calc(100vh - 2rem)' }}
+            >
+            {/* 弹窗头部 */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-100">
+                <Mic size={20} className="text-gray-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-700">{editingStock.symbol}</h3>
+                <p className="text-xs text-gray-400">{editingStock.name}</p>
+              </div>
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
             </div>
 
             {/* 表单内容 */}
@@ -1173,11 +1208,16 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
               </div>
             </div>
           </div>
+<<<<<<< HEAD
+=======
+          </div>
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
         </div>
       )}
 
       {/* 文本输入条 - 悬浮在底部导航栏上方 */}
       <div
+<<<<<<< HEAD
         className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 w-full max-w-md"
       >
         <div className="relative bg-white rounded-2xl shadow-lg border-2 border-gray-200 flex items-center">
@@ -1204,16 +1244,84 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
               isRecording 
                 ? 'bg-red-500 text-white' 
                 : 'bg-green-500 text-white hover:bg-green-600'
+=======
+        className="absolute bottom-[10px] left-0 right-0 z-50 px-4"
+        style={{ width: '100%', maxWidth: '100%' }}
+      >
+        <div className="relative bg-white rounded-2xl shadow-lg border-2 border-gray-200 flex items-center">
+          {/* 左侧：切换输入模式按钮（固定显示键盘图标） */}
+          <button
+            onClick={() => {
+              if (!isRecording) {
+                setInputMode(inputMode === 'text' ? 'voice' : 'text');
+              }
+            }}
+            className={`px-3 py-3 rounded-l-2xl transition-all flex items-center justify-center ${
+              inputMode === 'text'
+                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
             }`}
             style={{
               minWidth: '48px',
             }}
+<<<<<<< HEAD
           >
             <Mic 
               size={20} 
               className={isRecording ? 'animate-pulse' : ''}
             />
           </button>
+=======
+            title={inputMode === 'text' ? '切换到语音模式' : '切换到文本模式'}
+          >
+            <Mic size={20} />
+          </button>
+
+          {/* 中间：显示文本或输入框 */}
+          {inputMode === 'voice' ? (
+            <div className="flex-1 px-4 py-3 text-center text-sm text-gray-700">
+              按住 说话
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && !isRecording) {
+                  handleTextSubmit();
+                }
+              }}
+              placeholder="输入指令或长按右侧麦克风语音输入"
+              disabled={isRecording}
+              className="flex-1 px-4 py-3 focus:outline-none text-sm text-gray-700 disabled:bg-gray-50 disabled:text-gray-400"
+            />
+          )}
+
+          {/* 右侧：发送按钮 */}
+          {inputMode === 'voice' ? null : (
+            <button
+              onClick={() => {
+                if (!isRecording && inputText.trim()) {
+                  handleTextSubmit();
+                }
+              }}
+              disabled={!inputText.trim() || isRecording}
+              className={`px-4 py-3 rounded-r-2xl transition-all flex items-center justify-center ${
+                !inputText.trim() || isRecording
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-green-500 text-white hover:bg-green-600'
+              }`}
+              style={{
+                minWidth: '48px',
+              }}
+              title="发送"
+            >
+              <Send size={20} />
+            </button>
+          )}
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
         </div>
         {isRecording && (
           <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1 bg-red-500 text-white text-xs rounded-lg whitespace-nowrap shadow-lg">
@@ -1225,6 +1333,7 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
       {/* 指令确认弹窗 */}
       {showConfirmModal && parsedCommand && (
         <div
+<<<<<<< HEAD
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={handleCancelCommand}
         >
@@ -1241,6 +1350,24 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
               >
                 <X size={20} className="text-gray-400" />
               </button>
+=======
+          className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
+          onClick={handleCancelCommand}
+        >
+          {/* 弹窗外层容器：限制宽度与手机容器一致 */}
+          <div className="w-full max-w-md mx-auto">
+            <div
+              className="bg-white rounded-2xl p-6 w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxHeight: 'calc(100vh - 2rem)' }}
+            >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-100">
+                <Mic size={20} className="text-gray-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-700">确认执行指令</h3>
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
             </div>
             
             <div className="mb-6">
@@ -1403,6 +1530,10 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
               </button>
             </div>
           </div>
+<<<<<<< HEAD
+=======
+          </div>
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
         </div>
       )}
     </div>

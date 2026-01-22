@@ -113,8 +113,17 @@ export interface StockDaily {
 
 export interface FundFlow {
     symbol: string;
+<<<<<<< HEAD
     trade_date: string;
     main_net_inflow: number | null;
+=======
+    name?: string | null;
+    trade_date: string;
+    close_price?: number | null;
+    change_pct?: number | null;
+    main_net_inflow: number | null;
+    main_net_inflow_pct?: number | null;
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
     small_net_inflow: number | null;
     medium_net_inflow: number | null;
     large_net_inflow: number | null;

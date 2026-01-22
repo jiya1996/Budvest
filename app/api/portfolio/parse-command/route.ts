@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+<<<<<<< HEAD
+=======
+import { findStockByName, getStockNameList } from '@/lib/stock-utils';
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 
 interface ParsedCommand {
   stockName: string;
@@ -8,7 +12,11 @@ interface ParsedCommand {
   price: number;
   shares: number;
   holdingDays: number;
+<<<<<<< HEAD
   stockNames?: string[]; // 多个股票名称（用于批量删除）
+=======
+  stockNames?: string[];
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 }
 
 export async function POST(request: NextRequest) {
@@ -21,6 +29,7 @@ export async function POST(request: NextRequest) {
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
+<<<<<<< HEAD
       // 如果没有API Key，使用简单的规则匹配作为后备
       return NextResponse.json({ 
         command: parseCommandFallback(''),
@@ -174,6 +183,30 @@ ${JSON.stringify(portfolio?.map((p: any) => ({ symbol: p.symbol, name: p.name })
 返回：{"stockName":"微软","userIntent":"用户减持","cost":0,"time":"今日","price":0,"shares":100,"holdingDays":0}
 
 只返回JSON，不要其他文字。`;
+=======
+      return NextResponse.json({
+        command: parseCommandFallback(text),
+        fallback: true
+      });
+    }
+
+    const availableStocks = getStockNameList();
+    const systemPrompt = `解析投资指令为JSON。可用股票：${availableStocks.join(', ')}
+
+意图识别（理解语义）：
+- 买入类：买入、购入、买、购买、入手、抄底、建仓、加仓、增持、补仓、追涨 → "用户增持"
+- 卖出类：卖出、卖、出售、减仓、清仓、平仓、止损、止盈、获利了结、离场 → "用户减持"
+- 观望类：观望、自选、关注 → "用户观望"
+- 删除类：删除、移除 → "用户删除"
+
+价格解析："花了X买Y股" → price=X/Y, cost=X；"X元买Y股" → price=X, cost=X×Y
+
+示例：
+"购入100股特斯拉" → {"stockName":"Tesla","userIntent":"用户增持","cost":0,"time":"今日","price":0,"shares":100,"holdingDays":0}
+"抄底50股苹果" → {"stockName":"Apple","userIntent":"用户增持","cost":0,"time":"今日","price":0,"shares":50,"holdingDays":0}
+
+只返回JSON。`;
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -193,37 +226,75 @@ ${JSON.stringify(portfolio?.map((p: any) => ({ symbol: p.symbol, name: p.name })
     });
 
     if (!response.ok) {
+<<<<<<< HEAD
       const errorData = await response.json().catch(() => ({}));
       console.error('OpenAI API error:', errorData);
       // 如果API失败，使用后备解析
       return NextResponse.json({ 
         command: parseCommandFallback(''),
         fallback: true 
+=======
+      return NextResponse.json({
+        command: parseCommandFallback(text),
+        fallback: true
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
       });
     }
 
     const data = await response.json();
     const content = data.choices[0]?.message?.content;
+<<<<<<< HEAD
     
     if (!content) {
       return NextResponse.json({ 
         command: parseCommandFallback(''),
         fallback: true 
+=======
+
+    if (!content) {
+      return NextResponse.json({
+        command: parseCommandFallback(text),
+        fallback: true
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
       });
     }
 
     try {
       const command = JSON.parse(content);
+<<<<<<< HEAD
       return NextResponse.json({ command, fallback: false });
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
       return NextResponse.json({ 
         command: parseCommandFallback(''),
         fallback: true 
+=======
+
+      if (command.stockName && command.stockName !== '全部') {
+        const stock = findStockByName(command.stockName);
+        if (!stock) {
+          console.warn(`Stock not found: ${command.stockName}`);
+          return NextResponse.json({
+            command: null,
+            error: `未找到股票：${command.stockName}`,
+            fallback: false
+          });
+        }
+        command.stockName = stock.name;
+      }
+
+      return NextResponse.json({ command, fallback: false });
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError);
+      return NextResponse.json({
+        command: parseCommandFallback(text),
+        fallback: true
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
       });
     }
   } catch (error) {
     console.error('Error parsing command:', error);
+<<<<<<< HEAD
     // 即使发生错误，也尝试使用后备解析
     const fallbackCommand = parseCommandFallback('');
     return NextResponse.json(
@@ -315,19 +386,68 @@ function parseCommandFallback(text: string): ParsedCommand | null {
         cost: totalCost,
         time: lowerText.includes('今天') ? '今日' : lowerText.includes('昨天') ? '昨天' : '今日',
         price: pricePerShare, // 每股成本
+=======
+    const { text } = await request.json().catch(() => ({ text: '' }));
+    return NextResponse.json({
+      command: parseCommandFallback(text),
+      fallback: true,
+      error: 'Failed to parse command with AI, using fallback'
+    });
+  }
+}
+
+function parseCommandFallback(text: string): ParsedCommand | null {
+  const lowerText = text.toLowerCase();
+
+  const stockPattern = /(特斯拉|tesla|tsla|苹果|apple|aapl|英伟达|nvidia|nvda|微软|microsoft|msft|阿里巴巴|阿里|alibaba|baba|谷歌|google|goog|亚马逊|amazon|amzn|meta|facebook|脸书)/i;
+  const stockMatch = text.match(stockPattern);
+  if (!stockMatch) return null;
+
+  const stock = findStockByName(stockMatch[1]);
+  if (!stock) return null;
+
+  const stockName = stock.name;
+
+  // 扩展的买入关键词
+  const buyKeywords = ['买入', '购入', '买', '购买', '入手', '抄底', '建仓', '加仓', '增持', '补仓', '追涨'];
+  const hasBuyIntent = buyKeywords.some(keyword => lowerText.includes(keyword));
+
+  if (hasBuyIntent) {
+    const totalPricePattern = /(?:花了|用了|投入|总价|总成本|总共|一共|合计)(\d+(?:\.\d+)?)(?:元|块|美元|港币|HKD|USD|¥|\$)?.*?(?:买了|买入|购买|加仓|增持|买|购入|入手|抄底|建仓|补仓|追涨)(\d+)(?:股)/;
+    const totalPriceMatch = lowerText.match(totalPricePattern);
+    if (totalPriceMatch) {
+      const totalCost = parseFloat(totalPriceMatch[1]);
+      const shares = parseFloat(totalPriceMatch[2]);
+      const pricePerShare = shares > 0 ? totalCost / shares : 0;
+      return {
+        stockName,
+        userIntent: '用户增持',
+        cost: totalCost,
+        time: lowerText.includes('今天') ? '今日' : lowerText.includes('昨天') ? '昨天' : '今日',
+        price: pricePerShare,
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
         shares,
         holdingDays: 0,
       };
     }
+<<<<<<< HEAD
     
     // 模式3: "买了300股" 或 "买入100股"（只有股数，没有价格和成本）
     const sharesOnlyPattern = /(?:买了|买入|购买|加仓|增持|买)(\d+)(?:股)/;
+=======
+
+    const sharesOnlyPattern = /(?:买了|买入|购买|加仓|增持|买|购入|入手|抄底|建仓|补仓|追涨)(\d+)(?:股)/;
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
     const sharesOnlyMatch = lowerText.match(sharesOnlyPattern);
     if (sharesOnlyMatch) {
       const shares = parseFloat(sharesOnlyMatch[1]);
       return {
         stockName,
+<<<<<<< HEAD
         userIntent: '用户增持' as const,
+=======
+        userIntent: '用户增持',
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
         cost: 0,
         time: lowerText.includes('今天') ? '今日' : lowerText.includes('昨天') ? '昨天' : '今日',
         price: 0,
@@ -335,6 +455,7 @@ function parseCommandFallback(text: string): ParsedCommand | null {
         holdingDays: 0,
       };
     }
+<<<<<<< HEAD
     
     // 模式4: "400元买入100股" 或 "以350元的价格买了50股"（有单价和股数）
     // 注意：这个模式需要判断是单价还是总价，如果数字明显大于股数，可能是总价
@@ -381,6 +502,12 @@ function parseCommandFallback(text: string): ParsedCommand | null {
     return {
       stockName,
       userIntent: '用户增持' as const,
+=======
+
+    return {
+      stockName,
+      userIntent: '用户增持',
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
       cost: 0,
       time: lowerText.includes('今天') ? '今日' : lowerText.includes('昨天') ? '昨天' : '今日',
       price: 0,
@@ -389,12 +516,21 @@ function parseCommandFallback(text: string): ParsedCommand | null {
     };
   }
 
+<<<<<<< HEAD
   // 卖出模式（完整或不完整）
   const sellKeywords = ['卖出', '出售', '卖了', '减仓', '减持', '卖'];
   const hasSellIntent = sellKeywords.some(keyword => lowerText.includes(keyword));
   
   if (hasSellIntent) {
     const sellPattern = /(?:卖出|出售|卖了|减仓|减持|卖)(\d+)?(?:股)?/;
+=======
+  // 扩展的卖出关键词
+  const sellKeywords = ['卖出', '出售', '卖了', '减仓', '减持', '卖', '清仓', '平仓', '止损', '止盈', '获利了结', '离场'];
+  const hasSellIntent = sellKeywords.some(keyword => lowerText.includes(keyword));
+
+  if (hasSellIntent) {
+    const sellPattern = /(?:卖出|出售|卖了|减仓|减持|卖|清仓|平仓|止损|止盈|获利了结|离场)(\d+)?(?:股)?/;
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
     const sellMatch = lowerText.match(sellPattern);
     if (sellMatch) {
       const shares = sellMatch[1] ? parseFloat(sellMatch[1]) : 0;
@@ -407,6 +543,7 @@ function parseCommandFallback(text: string): ParsedCommand | null {
         shares,
         holdingDays: 0,
       };
+<<<<<<< HEAD
     } else {
       // 不完整的卖出指令，只识别了股票和意图
       return {
@@ -427,6 +564,15 @@ function parseCommandFallback(text: string): ParsedCommand | null {
   
   if (hasDeleteIntent) {
     // 检查是否是全部删除
+=======
+    }
+  }
+
+  const deleteKeywords = ['删除', '移除', '去掉'];
+  const hasDeleteIntent = deleteKeywords.some(keyword => lowerText.includes(keyword));
+
+  if (hasDeleteIntent) {
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
     if (lowerText.includes('全部') || lowerText.includes('所有') || lowerText.includes('清空')) {
       return {
         stockName: '全部',
@@ -438,6 +584,7 @@ function parseCommandFallback(text: string): ParsedCommand | null {
         holdingDays: 0,
       };
     }
+<<<<<<< HEAD
     
     // 检查是否是删除持有中的股票
     if (lowerText.includes('持有') || lowerText.includes('持仓')) {
@@ -498,6 +645,9 @@ function parseCommandFallback(text: string): ParsedCommand | null {
     }
     
     // 普通删除
+=======
+
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
     return {
       stockName,
       userIntent: '用户删除',
@@ -508,6 +658,7 @@ function parseCommandFallback(text: string): ParsedCommand | null {
       holdingDays: 0,
     };
   }
+<<<<<<< HEAD
   
   // 添加股票模式（明确说"添加"、"加入持仓"等）
   const addKeywords = ['添加', '加入持仓', '加入投资', '新增'];
@@ -536,6 +687,10 @@ function parseCommandFallback(text: string): ParsedCommand | null {
 
   // 观望模式
   if (lowerText.includes('观望') || lowerText.includes('自选')) {
+=======
+
+  if (lowerText.includes('观望') || lowerText.includes('自选') || lowerText.includes('关注')) {
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
     return {
       stockName,
       userIntent: '用户观望',
@@ -547,6 +702,7 @@ function parseCommandFallback(text: string): ParsedCommand | null {
     };
   }
 
+<<<<<<< HEAD
   // 更新模式
   const updatePattern = /(?:持有|已经持有)(\d+)(?:天|日).*?(?:成本|投入)(?:是|为)?(\d+)(?:元|块)?/;
   const updateMatch = lowerText.match(updatePattern);
@@ -569,3 +725,7 @@ function parseCommandFallback(text: string): ParsedCommand | null {
 }
 
 
+=======
+  return null;
+}
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)

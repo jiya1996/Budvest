@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+<<<<<<< HEAD
 import { PortfolioItem, Stock, StockConfig } from '@/lib/types';
 import { STOCK_DATABASE } from '@/lib/data';
+=======
+import { PortfolioItem, StockConfig } from '@/lib/types';
+import { findStockByName } from '@/lib/stock-utils';
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 
 interface ParsedCommand {
   stockName: string;
@@ -21,6 +26,7 @@ interface ParsedCommand {
   stockNames?: string[];
 }
 
+<<<<<<< HEAD
 function findStockByName(name: string): Stock | null {
   const upper = name.toUpperCase();
 
@@ -66,6 +72,8 @@ function findStockByName(name: string): Stock | null {
   return null;
 }
 
+=======
+>>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 async function getLatestPrice(symbol: string): Promise<number> {
   const apiKey = process.env.FMP_API_KEY;
   if (!apiKey) return 0;
