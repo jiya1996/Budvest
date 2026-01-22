@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-<<<<<<< HEAD
 import { PortfolioItem, Stock, StockConfig } from '@/lib/types';
 import { STOCK_DATABASE } from '@/lib/data';
-=======
-import { PortfolioItem, StockConfig } from '@/lib/types';
-import { findStockByName } from '@/lib/stock-utils';
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 
 interface ParsedCommand {
   stockName: string;
@@ -26,7 +21,6 @@ interface ParsedCommand {
   stockNames?: string[];
 }
 
-<<<<<<< HEAD
 function findStockByName(name: string): Stock | null {
   const upper = name.toUpperCase();
 
@@ -72,8 +66,6 @@ function findStockByName(name: string): Stock | null {
   return null;
 }
 
-=======
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 async function getLatestPrice(symbol: string): Promise<number> {
   const apiKey = process.env.FMP_API_KEY;
   if (!apiKey) return 0;
@@ -100,7 +92,11 @@ export async function POST(req: NextRequest) {
 
     if (!command) {
       return NextResponse.json(
-        { error: 'command is required' },
+        {
+          error: 'command is required',
+          message: '缺少命令参数',
+          code: 'MISSING_COMMAND'
+        },
         { status: 400 }
       );
     }
@@ -122,7 +118,11 @@ export async function POST(req: NextRequest) {
       (!price || price <= 0 || !shares || shares <= 0)
     ) {
       return NextResponse.json(
-        { error: '无效的价格或股数', code: 'INVALID_PRICE_OR_SHARES' },
+        {
+          error: '无效的价格或股数',
+          message: `${userIntent === '用户增持' ? '买入' : '卖出'}操作需要提供有效的价格和股数`,
+          code: 'INVALID_PRICE_OR_SHARES'
+        },
         { status: 400 }
       );
     }
@@ -130,7 +130,11 @@ export async function POST(req: NextRequest) {
     const stock = findStockByName(stockName);
     if (!stock && userIntent !== '用户全部删除') {
       return NextResponse.json(
-        { error: `未找到股票：${stockName}` },
+        {
+          error: `未找到股票：${stockName}`,
+          message: `无法识别股票"${stockName}"，请检查股票名称是否正确`,
+          code: 'STOCK_NOT_FOUND'
+        },
         { status: 400 }
       );
     }
@@ -354,11 +358,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ portfolio: updatedPortfolio });
+    return NextResponse.json({
+      portfolio: updatedPortfolio,
+      message: '命令执行成功',
+      success: true
+    });
   } catch (e) {
     console.error('apply-command error', e);
     return NextResponse.json(
-      { error: 'Failed to apply command' },
+      {
+        error: 'Failed to apply command',
+        message: '命令执行失败，请稍后重试',
+        code: 'EXECUTION_ERROR'
+      },
       { status: 500 }
     );
   }

@@ -3,19 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortfolioItem, Stock, StockConfig, UserConfig } from '@/lib/types';
-<<<<<<< HEAD
 import { ArrowLeft, Search, Trash2, Plus, Eye, X } from 'lucide-react';
 import { storage } from '@/lib/storage';
 import { STOCK_DATABASE, INVESTMENT_GOALS } from '@/lib/data';
 import { getCurrencySymbol, formatPrice } from '@/lib/currency';
 import BottomNav from '@/components/BottomNav';
-=======
-import { ArrowLeft, Search, Trash2, Plus, Eye, X, Mic } from 'lucide-react';
-import { storage } from '@/lib/storage';
-import { STOCK_DATABASE, INVESTMENT_GOALS } from '@/lib/data';
-import { getCurrencySymbol, formatPrice } from '@/lib/currency';
-
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 
 interface PriceData {
   price: number | null;
@@ -303,47 +295,25 @@ export default function ManageStockPage() {
 
 
   return (
-    <>
-<<<<<<< HEAD
-      <div style={{ padding: '20px', paddingBottom: '100px', maxWidth: '800px', margin: '0 auto', minHeight: '100vh' }}>
-=======
-      {/* 外层容器：限制宽度为手机屏幕宽度 */}
-      <div className="flex justify-center items-center min-h-screen bg-slate-200 font-sans">
-        <div className="w-full max-w-md h-[100dvh] md:h-[844px] bg-slate-50 shadow-2xl md:rounded-[40px] overflow-hidden md:border-[8px] md:border-slate-800 relative flex flex-col">
-          {/* 内容区域 */}
-          <div style={{ padding: '20px', flex: 1, overflowY: 'auto', position: 'relative', zIndex: 1 }}>
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
+    <div className="flex justify-center items-center min-h-screen bg-slate-200 font-sans">
+      <div className="w-full max-w-md h-[100dvh] md:h-[844px] bg-slate-50 shadow-2xl md:rounded-[40px] overflow-hidden md:border-[8px] md:border-slate-800 relative flex flex-col">
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-          <button
-            onClick={() => router.push('/?tab=portfolio')}
-            style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: '#f3f4f6',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'background-color 0.2s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e5e7eb')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
-          >
-            <ArrowLeft size={20} className="text-gray-700" />
-          </button>
-          <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>管理股票</h1>
+        <div className="px-6 py-4 bg-white/80 backdrop-blur-sm border-b border-slate-100">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push('/?tab=portfolio')}
+              className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200"
+            >
+              <ArrowLeft size={20} className="text-slate-700" />
+            </button>
+            <h1 className="text-xl font-bold text-slate-800">管理股票</h1>
+          </div>
         </div>
 
-        <div>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4" style={{ paddingBottom: '100px' }}>
           {/* 搜索框 */}
-<<<<<<< HEAD
           <div className="relative mb-6">
-=======
-          <div className="relative mb-6" style={{ zIndex: 30 }}>
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" size={18} />
             <input
               type="text"
@@ -356,18 +326,8 @@ export default function ManageStockPage() {
             {/* 搜索结果下拉弹层 */}
             {searchQuery && availableStocks.length > 0 && (
               <div
-<<<<<<< HEAD
-                className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border-2 border-gray-100 max-h-64 overflow-y-auto z-50"
+                className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border-2 border-gray-100 max-h-64 overflow-y-auto z-[60]"
                 style={{ boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)' }}
-=======
-                className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border-2 border-gray-100 overflow-y-auto"
-                style={{ 
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-                  maxHeight: 'calc(100vh - 300px)',
-                  zIndex: 30,
-                  position: 'absolute'
-                }}
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
               >
                 {availableStocks.map((stock) => (
                   <div
@@ -438,17 +398,8 @@ export default function ManageStockPage() {
             {/* 无搜索结果提示 */}
             {searchQuery && availableStocks.length === 0 && (
               <div
-<<<<<<< HEAD
-                className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border-2 border-gray-100 p-4 z-50"
+                className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border-2 border-gray-100 p-4 z-[60]"
                 style={{ boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)' }}
-=======
-                className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border-2 border-gray-100 p-4"
-                style={{ 
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-                  zIndex: 30,
-                  position: 'absolute'
-                }}
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
               >
                 <p className="text-sm text-gray-400 text-center">未找到匹配的股票</p>
               </div>
@@ -573,7 +524,7 @@ export default function ManageStockPage() {
                     placeholder="例如：10000"
                     value={stockConfig.capital}
                     onChange={(e) => setStockConfig({ ...stockConfig, capital: e.target.value })}
-                    className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-green-400 focus:outline-none"
+                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -583,7 +534,7 @@ export default function ManageStockPage() {
                   <select
                     value={stockConfig.goal}
                     onChange={(e) => setStockConfig({ ...stockConfig, goal: e.target.value })}
-                    className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-green-400 focus:outline-none"
+                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none transition-colors"
                   >
                     {INVESTMENT_GOALS.map((goal) => (
                       <option key={goal} value={goal}>
@@ -605,49 +556,28 @@ export default function ManageStockPage() {
           )}
         </div>
 
-<<<<<<< HEAD
         {/* 编辑弹窗（用于添加持仓） */}
         {showEditModal && editingStock && (
           <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"
+            style={{ zIndex: 9999 }}
             onClick={handleCloseEditModal}
           >
-            <div
-              className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-              style={{ maxHeight: 'calc(100vh - 2rem)' }}
-            >
+            <div className="w-full max-w-md">
+              <div
+                className="bg-white rounded-2xl p-6 w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+                style={{ maxHeight: 'calc(100vh - 2rem)' }}
+              >
               {/* 弹窗头部 */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <img src={editingStock.logo} alt={editingStock.name} className="w-10 h-10 rounded-lg" />
-=======
-          {/* 编辑弹窗（用于添加持仓） */}
-          {showEditModal && editingStock && (
-            <div
-              className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"
-              style={{ zIndex: 9999 }}
-              onClick={handleCloseEditModal}
-            >
-              {/* 弹窗外层容器：限制宽度与手机容器一致 */}
-              <div className="w-full max-w-md">
-                <div
-                  className="bg-white rounded-2xl p-6 w-full shadow-2xl max-h-[90vh] overflow-y-auto"
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ maxHeight: 'calc(100vh - 2rem)' }}
-                >
-                {/* 弹窗头部 */}
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-100">
-                    <Mic size={20} className="text-gray-600" />
-                  </div>
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
                   <div>
                     <h3 className="text-lg font-bold text-gray-700">{editingStock.symbol}</h3>
                     <p className="text-xs text-gray-400">{editingStock.name}</p>
                   </div>
                 </div>
-<<<<<<< HEAD
                 <button
                   onClick={handleCloseEditModal}
                   className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
@@ -668,7 +598,7 @@ export default function ManageStockPage() {
                     value={shares}
                     onChange={(e) => setShares(e.target.value)}
                     placeholder="例如：100"
-                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-400 focus:outline-none text-gray-700"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none transition-colors text-gray-700"
                     min="1"
                     step="1"
                     required
@@ -690,7 +620,7 @@ export default function ManageStockPage() {
                       value={costPrice}
                       onChange={(e) => setCostPrice(e.target.value)}
                       placeholder="例如：100"
-                      className="w-full pl-9 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-400 focus:outline-none text-gray-700 font-mono"
+                      className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none transition-colors text-gray-700 font-mono"
                       min="0.01"
                       step="0.01"
                       required
@@ -741,110 +671,19 @@ export default function ManageStockPage() {
                   >
                     保存
                   </button>
-=======
-
-                {/* 表单内容 */}
-                <div className="space-y-4">
-                  {/* 持有股数 */}
-                  <div>
-                    <label className="text-sm font-semibold text-gray-600 mb-2 block">
-                      持有股数 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      value={shares}
-                      onChange={(e) => setShares(e.target.value)}
-                      placeholder="例如：100"
-                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-400 focus:outline-none text-gray-700"
-                      min="1"
-                      step="1"
-                      required
-                    />
-                    <p className="text-xs text-gray-400 mt-1">股数必须大于0</p>
-                  </div>
-
-                  {/* 每股持有成本 */}
-                  <div>
-                    <label className="text-sm font-semibold text-gray-600 mb-2 block">
-                      每股持有成本 <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
-                        {editingStock ? getCurrencySymbol(editingStock.symbol) : '¥'}
-                      </span>
-                      <input
-                        type="number"
-                        value={costPrice}
-                        onChange={(e) => setCostPrice(e.target.value)}
-                        placeholder="例如：100"
-                        className="w-full pl-9 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-400 focus:outline-none text-gray-700 font-mono"
-                        min="0.01"
-                        step="0.01"
-                        required
-                      />
-                    </div>
-                    {/* 显示计算结果 */}
-                    {costPrice && shares && Number(costPrice) > 0 && Number(shares) > 0 && (
-                      <div className="mt-2 text-xs text-gray-500">
-                        总成本：{editingStock ? getCurrencySymbol(editingStock.symbol) : '¥'}{(Number(costPrice) * Number(shares)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 投资目标 */}
-                  <div>
-                    <label className="text-sm font-semibold text-gray-600 mb-2 block">
-                      投资目标
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {INVESTMENT_GOALS.map((opt) => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => setGoal(opt)}
-                          className={`py-3 px-3 text-sm rounded-2xl transition-all duration-300 ${
-                            goal === opt
-                              ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 text-green-700 font-semibold'
-                              : 'bg-gray-50 border-2 border-transparent text-gray-500'
-                          }`}
-                          style={{
-                            boxShadow:
-                              goal === opt
-                                ? '0 2px 12px rgba(74, 222, 128, 0.15)'
-                                : 'none',
-                          }}
-                        >
-                          {opt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 按钮组 */}
-                  <div className="pt-4">
-                    <button
-                      onClick={handleSaveAndAdd}
-                      className="w-full py-3 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors"
-                    >
-                      保存
-                    </button>
-                  </div>
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
                 </div>
               </div>
             </div>
+            </div>
           </div>
-<<<<<<< HEAD
         )}
-      </div>
-      <BottomNav />
-=======
-          )}
-          </div>
+        
+        {/* Bottom Nav */}
+        <div className="absolute bottom-0 left-0 right-0 z-40">
+          <BottomNav activeTab="portfolio" />
         </div>
       </div>
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
-    </>
+    </div>
   );
 }
 

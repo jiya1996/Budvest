@@ -1,10 +1,7 @@
 'use client';
 
-<<<<<<< HEAD
 import { useState, useEffect } from 'react';
-=======
-import { useState, useEffect, Suspense } from 'react';
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
+
 import { usePathname, useSearchParams } from 'next/navigation';
 import { User } from 'lucide-react';
 import { storage } from '@/lib/storage';
@@ -18,11 +15,8 @@ import ProfileTab from '@/components/ProfileTab';
 
 type TabType = 'market' | 'companion' | 'portfolio' | 'profile';
 
-<<<<<<< HEAD
 export default function Home() {
-=======
-function HomeContent() {
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
+
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [hasOnboarded, setHasOnboarded] = useState(false);
@@ -261,12 +255,6 @@ function HomeContent() {
             <header className="px-6 py-3 bg-white/80 backdrop-blur-sm z-40 flex justify-between items-center border-b border-slate-50">
               <div>
                 <h1 className="text-xl font-bold text-slate-800">伴投</h1>
-<<<<<<< HEAD
-                <p className="text-[10px] text-slate-500 font-medium">
-                  心理资本：¥{Math.round(totalPrincipal * 1.2).toLocaleString()}
-                </p>
-=======
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
               </div>
               <button
                 onClick={() => setActiveTab('profile')}
@@ -289,18 +277,4 @@ function HomeContent() {
     </div>
   );
 }
-<<<<<<< HEAD
-=======
 
-export default function Home() {
-  return (
-    <Suspense fallback={
-      <div className="flex justify-center items-center min-h-screen bg-slate-200">
-        <div className="text-slate-500">加载中...</div>
-      </div>
-    }>
-      <HomeContent />
-    </Suspense>
-  );
-}
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)

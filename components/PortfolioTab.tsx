@@ -3,11 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortfolioItem } from '@/lib/types';
-<<<<<<< HEAD
-import { TrendingUp, TrendingDown, Target, Eye, Wallet, Plus, X, Mic, Check } from 'lucide-react';
-=======
-import { TrendingUp, TrendingDown, Target, Eye, Wallet, Plus, X, Mic, Check, Type, Send } from 'lucide-react';
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
+import { TrendingUp, TrendingDown, Target, Eye, Wallet, Plus, X, Send, Check } from 'lucide-react';
+
 import { storage } from '@/lib/storage';
 import { STOCK_DATABASE } from '@/lib/data';
 import { getCurrencySymbol, formatPrice } from '@/lib/currency';
@@ -82,24 +79,29 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
   const [costPrice, setCostPrice] = useState('');
   
   // 语音输入相关状态
-<<<<<<< HEAD
-=======
-  const [inputMode, setInputMode] = useState<'text' | 'voice'>('text'); // 输入模式：文本或录音
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
+
   const [isRecording, setIsRecording] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [transcript, setTranscript] = useState('');
   const [parsedCommand, setParsedCommand] = useState<ParsedCommand | null>(null);
+  const [parsedCommands, setParsedCommands] = useState<ParsedCommand[]>([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [inputText, setInputText] = useState('');
-  // 用于手动补充缺失字段
+  // 用于手动补充缺失字段（单个命令）
   const [manualCost, setManualCost] = useState('');
   const [manualShares, setManualShares] = useState('');
+  // 用于批量命令的手动输入（每个命令一个对象）
+  const [manualInputs, setManualInputs] = useState<Record<number, { cost: string; shares: string }>>({});
   
   const investingItems = portfolio.filter((item) => item.config.status === 'investing');
   const watchingItems = portfolio.filter((item) => item.config.status === 'watching');
 
-  // 使用AI解析指令
+  // 检测是否为批量指令
+  const isBatchCommand = (text: string): boolean => {
+    return /[，,、；;]|和|与/.test(text);
+  };
+
+  // 使用AI解析指令（单个）
   const parseCommandWithAI = async (text: string): Promise<any> => {
     try {
       const response = await fetch('/api/portfolio/parse-command', {
@@ -133,6 +135,36 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
     }
   };
 
+  // 使用AI解析批量指令
+  const parseBatchCommandWithAI = async (text: string): Promise<ParsedCommand[]> => {
+    try {
+      const response = await fetch('/api/portfolio/parse-batch-command', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.commands && Array.isArray(data.commands) && data.commands.length > 0) {
+        return data.commands;
+      }
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to parse batch command');
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error parsing batch command with AI:', error);
+      return [];
+    }
+  };
+
   // 初始化语音识别
   useEffect(() => {
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
@@ -148,11 +180,32 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
         setInputText(transcriptText); // 将识别结果填入输入框
         setIsRecording(false);
         
-        // 使用AI解析指令
-        const command = await parseCommandWithAI(transcriptText);
-        if (command) {
-          setParsedCommand(command);
-          setShowConfirmModal(true);
+        // 检测是否为批量指令
+        const isBatch = isBatchCommand(transcriptText);
+        
+        if (isBatch) {
+          // 批量指令：调用批量解析API
+          const commands = await parseBatchCommandWithAI(transcriptText);
+          if (commands && commands.length > 0) {
+            setParsedCommands(commands);
+            setParsedCommand(null);
+            // 初始化每个命令的手动输入
+            const inputs: Record<number, { cost: string; shares: string }> = {};
+            commands.forEach((_, index) => {
+              inputs[index] = { cost: '', shares: '' };
+            });
+            setManualInputs(inputs);
+            setShowConfirmModal(true);
+          }
+        } else {
+          // 单个指令：调用单个解析API
+          const command = await parseCommandWithAI(transcriptText);
+          if (command) {
+            setParsedCommand(command);
+            setParsedCommands([]);
+            setManualInputs({});
+            setShowConfirmModal(true);
+          }
         }
       };
       
@@ -478,6 +531,43 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
     handleCloseEditModal();
   };
 
+  // 根据股票名称查找股票信息
+  const findStockByName = (name: string): any => {
+    // 尝试匹配股票代码
+    const codeMatch = STOCK_DATABASE.find(s => 
+      s.symbol.toLowerCase() === name.toLowerCase()
+    );
+    if (codeMatch) return codeMatch;
+    
+    // 尝试匹配股票名称（支持部分匹配）
+    const nameMatch = STOCK_DATABASE.find(s => 
+      s.name.toLowerCase().includes(name.toLowerCase()) || 
+      name.toLowerCase().includes(s.name.toLowerCase())
+    );
+    if (nameMatch) return nameMatch;
+    
+    // 支持中文名称映射
+    const nameMap: Record<string, string> = {
+      '特斯拉': 'TSLA',
+      '苹果': 'AAPL',
+      '英伟达': 'NVDA',
+      '微软': 'MSFT',
+      '阿里巴巴': 'BABA',
+      '谷歌': 'GOOG',
+      '亚马逊': 'AMZN',
+      'Meta': 'META',
+      'meta': 'META',
+      '脸书': 'META',
+    };
+    
+    const mappedCode = nameMap[name];
+    if (mappedCode) {
+      return STOCK_DATABASE.find(s => s.symbol === mappedCode);
+    }
+    
+    return null;
+  };
+
   // 后备解析函数（转换为新格式以兼容 API 返回格式）
   const parseVoiceCommand = (text: string): ParsedCommand | null => {
     // 转换为小写以便匹配
@@ -586,6 +676,8 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
     
     setTranscript('');
     setParsedCommand(null);
+    setParsedCommands([]);
+    setManualInputs({});
     recognition.start();
     setIsRecording(true);
   };
@@ -605,60 +697,152 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
     const text = inputText.trim();
     setTranscript(text);
     
-    // 使用AI解析指令
-          const command = await parseCommandWithAI(text);
-
-          if (command) {
-            setParsedCommand(command);
-            // 重置手动输入字段
-            setManualCost('');
-            setManualShares('');
-            setShowConfirmModal(true);
-            setInputText('');
-          } else {
-            alert('无法识别指令，请尝试："我今天400元买入100股特斯拉" 或 "把苹果加入观望" 这样的格式');
-          }
+    // 检测是否为批量指令
+    const isBatch = isBatchCommand(text);
+    
+    if (isBatch) {
+      // 批量指令：调用批量解析API
+      const commands = await parseBatchCommandWithAI(text);
+      if (commands && commands.length > 0) {
+        setParsedCommands(commands);
+        setParsedCommand(null);
+        // 初始化每个命令的手动输入
+        const inputs: Record<number, { cost: string; shares: string }> = {};
+        commands.forEach((_, index) => {
+          inputs[index] = { cost: '', shares: '' };
+        });
+        setManualInputs(inputs);
+        setShowConfirmModal(true);
+        setInputText('');
+      } else {
+        alert('无法识别批量指令，请尝试："买入特斯拉100股、苹果50股" 或 "删除特斯拉和苹果" 这样的格式');
+      }
+    } else {
+      // 单个指令：调用单个解析API
+      const command = await parseCommandWithAI(text);
+      if (command) {
+        setParsedCommand(command);
+        setParsedCommands([]);
+        // 重置手动输入字段
+        setManualCost('');
+        setManualShares('');
+        setManualInputs({});
+        setShowConfirmModal(true);
+        setInputText('');
+      } else {
+        alert('无法识别指令，请尝试："我今天400元买入100股特斯拉" 或 "把苹果加入观望" 这样的格式');
+      }
+    }
   };
 
-  // 根据股票名称查找股票信息
-  const findStockByName = (name: string): any => {
-    // 尝试匹配股票代码
-    const codeMatch = STOCK_DATABASE.find(s => 
-      s.symbol.toLowerCase() === name.toLowerCase()
-    );
-    if (codeMatch) return codeMatch;
-    
-    // 尝试匹配股票名称（支持部分匹配）
-    const nameMatch = STOCK_DATABASE.find(s => 
-      s.name.toLowerCase().includes(name.toLowerCase()) || 
-      name.toLowerCase().includes(s.name.toLowerCase())
-    );
-    if (nameMatch) return nameMatch;
-    
-    // 支持中文名称映射
-    const nameMap: Record<string, string> = {
-      '特斯拉': 'TSLA',
-      '苹果': 'AAPL',
-      '英伟达': 'NVDA',
-      '微软': 'MSFT',
-      '阿里巴巴': 'BABA',
-      '谷歌': 'GOOG',
-      '亚马逊': 'AMZN',
-      'Meta': 'META',
-      'meta': 'META',
-      '脸书': 'META',
-    };
-    
-    const mappedCode = nameMap[name];
-    if (mappedCode) {
-      return STOCK_DATABASE.find(s => s.symbol === mappedCode);
+  // 确认执行指令（支持单个和批量）
+  const handleConfirmCommand = async () => {
+    // 批量执行
+    if (parsedCommands.length > 0) {
+      // 验证所有命令的必填项
+      const validatedCommands: ParsedCommand[] = [];
+      
+      for (let i = 0; i < parsedCommands.length; i++) {
+        const cmd = parsedCommands[i];
+        const manualInput = manualInputs[i] || { cost: '', shares: '' };
+        
+        // 对于增持或减持，必须包含每股成本和股数
+        if (cmd.userIntent === '用户增持' || cmd.userIntent === '用户减持') {
+          const finalPricePerShare = cmd.price > 0 ? cmd.price : Number(manualInput.cost);
+          const finalShares = cmd.shares > 0 ? cmd.shares : Number(manualInput.shares);
+          
+          if (!finalPricePerShare || finalPricePerShare <= 0) {
+            const stock = findStockByName(cmd.stockName);
+            const currencySymbol = stock ? getCurrencySymbol(stock.symbol) : '¥';
+            alert(`请填入${cmd.stockName}的买卖价格（${currencySymbol}）`);
+            return;
+          }
+          
+          if (!finalShares || finalShares <= 0) {
+            alert(`请填入${cmd.stockName}的股数`);
+            return;
+          }
+          
+          // 使用手动输入的值（如果原值为空）
+          const finalCost = finalPricePerShare > 0 && finalShares > 0 ? finalPricePerShare * finalShares : (cmd.cost > 0 ? cmd.cost : 0);
+          
+          validatedCommands.push({
+            ...cmd,
+            price: finalPricePerShare,
+            shares: finalShares,
+            cost: finalCost,
+          });
+        } else {
+          validatedCommands.push(cmd);
+        }
+      }
+      
+      // 调用批量执行API
+      try {
+        const res = await fetch('/api/portfolio/apply-batch-command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            portfolio,
+            commands: validatedCommands,
+          }),
+        });
+        
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          alert(data.message || data.error || '批量执行失败，请稍后重试');
+          return;
+        }
+        
+        const data = await res.json();
+        const updatedPortfolio = data.portfolio as PortfolioItem[];
+        
+        // 更新 storage
+        const config = storage.getUserConfig();
+        if (config) {
+          config.portfolio = updatedPortfolio;
+          config.watchlist = updatedPortfolio.map((p) => p.symbol);
+          
+          // 重新计算总投入本金
+          const investingItems = updatedPortfolio.filter((p) => p.config.status === 'investing');
+          const calculatedTotalPrincipal = investingItems.reduce(
+            (sum, item) => sum + (item.cost || 0),
+            0
+          );
+          config.totalPrincipal = calculatedTotalPrincipal;
+          
+          storage.saveUserConfig(config);
+          window.dispatchEvent(new CustomEvent('portfolioUpdated'));
+        }
+        
+        // 通知父组件更新
+        if (onPortfolioUpdate) {
+          onPortfolioUpdate(updatedPortfolio);
+        }
+        
+        // 显示执行结果
+        if (data.summary) {
+          const { success, failure } = data.summary;
+          if (failure > 0) {
+            alert(`批量执行完成：成功 ${success} 个，失败 ${failure} 个`);
+          }
+        }
+        
+        setShowConfirmModal(false);
+        setParsedCommands([]);
+        setManualInputs({});
+        setTranscript('');
+        setInputText('');
+      } catch (e) {
+        console.error('apply-batch-command failed', e);
+        alert('批量执行失败，请检查网络或稍后重试');
+        return;
+      }
+      
+      return;
     }
     
-    return null;
-  };
-
-  // 确认执行指令
-  const handleConfirmCommand = async () => {
+    // 单个执行（原有逻辑）
     if (!parsedCommand) return;
     
     // 对于增持或减持，必须包含每股成本和股数
@@ -761,20 +945,18 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
   const handleCancelCommand = () => {
     setShowConfirmModal(false);
     setParsedCommand(null);
+    setParsedCommands([]);
     setTranscript('');
     setInputText('');
     setManualCost('');
     setManualShares('');
+    setManualInputs({});
   };
 
   return (
     <div
       className="flex flex-col h-full relative overflow-hidden"
-<<<<<<< HEAD
       style={{ background: 'linear-gradient(180deg, #E8F0FB 0%, #F0EBF8 50%, #FBF6F0 100%)' }}
-=======
-      style={{ background: 'linear-gradient(180deg, #E8F0FB 0%, #F0EBF8 50%, #FBF6F0 100%)', minHeight: '100%' }}
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
     >
       {/* 装饰性背景 */}
       <div className="absolute top-10 right-0 w-40 h-40 rounded-full bg-gradient-to-br from-green-100/50 to-emerald-200/50 blur-3xl" />
@@ -1101,123 +1283,98 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
       {/* 编辑弹窗 */}
       {showEditModal && editingStock && (
         <div
-<<<<<<< HEAD
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
+          style={{ zIndex: 9999 }}
           onClick={handleCloseEditModal}
         >
-          <div
-            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxHeight: 'calc(100vh - 2rem)' }}
-          >
-            {/* 弹窗头部 */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <img src={editingStock.logo} alt={editingStock.name} className="w-10 h-10 rounded-lg" />
-                <div>
-                  <h3 className="text-lg font-bold text-gray-700">{editingStock.symbol}</h3>
-                  <p className="text-xs text-gray-400">{editingStock.name}</p>
-                </div>
-              </div>
-              <button
-                onClick={handleCloseEditModal}
-                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
-              >
-                <X size={20} className="text-gray-400" />
-              </button>
-=======
-          className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
-          onClick={handleCloseEditModal}
-        >
-          {/* 弹窗外层容器：限制宽度与手机容器一致 */}
-          <div className="w-full max-w-md mx-auto">
+          <div className="w-full max-w-md">
             <div
               className="bg-white rounded-2xl p-6 w-full shadow-2xl max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
               style={{ maxHeight: 'calc(100vh - 2rem)' }}
             >
-            {/* 弹窗头部 */}
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-100">
-                <Mic size={20} className="text-gray-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-700">{editingStock.symbol}</h3>
-                <p className="text-xs text-gray-400">{editingStock.name}</p>
-              </div>
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
-            </div>
-
-            {/* 表单内容 */}
-            <div className="space-y-4">
-              {/* 持有股数 */}
-              <div>
-                <label className="text-sm font-semibold text-gray-600 mb-2 block">
-                  持有股数 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={shares}
-                  onChange={(e) => setShares(e.target.value)}
-                  placeholder="例如：100"
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-400 focus:outline-none text-gray-700"
-                  min="1"
-                  step="1"
-                  required
-                />
-                <p className="text-xs text-gray-400 mt-1">股数必须大于0</p>
-              </div>
-
-              {/* 每股持有成本 */}
-              <div>
-                <label className="text-sm font-semibold text-gray-600 mb-2 block">
-                  每股持有成本 <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
-                    {editingStock ? getCurrencySymbol(editingStock.symbol) : '¥'}
-                  </span>
-                  <input
-                    type="number"
-                    value={costPrice}
-                    onChange={(e) => setCostPrice(e.target.value)}
-                    placeholder="例如：100"
-                    className="w-full pl-9 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-green-400 focus:outline-none text-gray-700 font-mono"
-                    min="0.01"
-                    step="0.01"
-                    required
-                  />
-                </div>
-                {/* 显示计算结果 */}
-                {costPrice && shares && Number(costPrice) > 0 && Number(shares) > 0 && (
-                  <div className="mt-2 text-xs text-gray-500">
-                    总成本：{editingStock ? getCurrencySymbol(editingStock.symbol) : '¥'}{(Number(costPrice) * Number(shares)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {/* 弹窗头部 */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <img src={editingStock.logo} alt={editingStock.name} className="w-10 h-10 rounded-lg" />
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-700">{editingStock.symbol}</h3>
+                    <p className="text-xs text-gray-400">{editingStock.name}</p>
                   </div>
-                )}
-              </div>
-
-              {/* 按钮组 */}
-              <div className="pt-4">
+                </div>
                 <button
-                  onClick={handleSaveEdit}
-                  className="w-full py-3 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors"
+                  onClick={handleCloseEditModal}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
                 >
-                  保存
+                  <X size={20} className="text-gray-400" />
                 </button>
               </div>
+
+              {/* 表单内容 */}
+              <div className="space-y-4">
+                {/* 持有股数 */}
+                <div>
+                  <label className="text-sm font-semibold text-gray-600 mb-2 block">
+                    持有股数 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={shares}
+                    onChange={(e) => setShares(e.target.value)}
+                    placeholder="例如：100"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none transition-colors text-gray-700"
+                    min="1"
+                    step="1"
+                    required
+                  />
+                  <p className="text-xs text-gray-400 mt-1">股数必须大于0</p>
+                </div>
+
+                {/* 每股持有成本 */}
+                <div>
+                  <label className="text-sm font-semibold text-gray-600 mb-2 block">
+                    每股持有成本 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
+                      {editingStock ? getCurrencySymbol(editingStock.symbol) : '¥'}
+                    </span>
+                    <input
+                      type="number"
+                      value={costPrice}
+                      onChange={(e) => setCostPrice(e.target.value)}
+                      placeholder="例如：100"
+                      className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none transition-colors text-gray-700 font-mono"
+                      min="0.01"
+                      step="0.01"
+                      required
+                    />
+                  </div>
+                  {/* 显示计算结果 */}
+                  {costPrice && shares && Number(costPrice) > 0 && Number(shares) > 0 && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      总成本：{editingStock ? getCurrencySymbol(editingStock.symbol) : '¥'}{(Number(costPrice) * Number(shares)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 按钮组 */}
+                <div className="pt-4">
+                  <button
+                    onClick={handleSaveEdit}
+                    className="w-full py-3 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors"
+                  >
+                    保存
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-<<<<<<< HEAD
-=======
-          </div>
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
         </div>
       )}
 
       {/* 文本输入条 - 悬浮在底部导航栏上方 */}
       <div
-<<<<<<< HEAD
         className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 w-full max-w-md"
       >
         <div className="relative bg-white rounded-2xl shadow-lg border-2 border-gray-200 flex items-center">
@@ -1226,122 +1383,208 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyPress={(e) => {
-              if (e.key === 'Enter' && !isRecording) {
+              if (e.key === 'Enter') {
                 handleTextSubmit();
               }
             }}
-            placeholder={isRecording ? '正在录音...' : '输入指令或长按麦克风语音输入'}
-            disabled={isRecording}
-            className="flex-1 px-4 py-3 rounded-2xl focus:outline-none text-sm text-gray-700 disabled:bg-gray-50 disabled:text-gray-400"
+            placeholder="输入指令..."
+            className="flex-1 px-4 py-3 rounded-2xl focus:outline-none text-sm text-gray-700"
           />
           <button
-            onMouseDown={handleStartRecording}
-            onMouseUp={handleStopRecording}
-            onMouseLeave={handleStopRecording}
-            onTouchStart={handleStartRecording}
-            onTouchEnd={handleStopRecording}
-            className={`px-4 py-3 rounded-r-2xl transition-all flex items-center justify-center ${
-              isRecording 
-                ? 'bg-red-500 text-white' 
-                : 'bg-green-500 text-white hover:bg-green-600'
-=======
-        className="absolute bottom-[10px] left-0 right-0 z-50 px-4"
-        style={{ width: '100%', maxWidth: '100%' }}
-      >
-        <div className="relative bg-white rounded-2xl shadow-lg border-2 border-gray-200 flex items-center">
-          {/* 左侧：切换输入模式按钮（固定显示键盘图标） */}
-          <button
-            onClick={() => {
-              if (!isRecording) {
-                setInputMode(inputMode === 'text' ? 'voice' : 'text');
-              }
-            }}
-            className={`px-3 py-3 rounded-l-2xl transition-all flex items-center justify-center ${
-              inputMode === 'text'
-                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
-            }`}
+            onClick={handleTextSubmit}
+            disabled={!inputText.trim()}
+            className="px-4 py-3 rounded-r-2xl transition-all flex items-center justify-center bg-green-500 text-white hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
             style={{
               minWidth: '48px',
             }}
-<<<<<<< HEAD
           >
-            <Mic 
+            <Send 
               size={20} 
-              className={isRecording ? 'animate-pulse' : ''}
             />
           </button>
-=======
-            title={inputMode === 'text' ? '切换到语音模式' : '切换到文本模式'}
-          >
-            <Mic size={20} />
-          </button>
-
-          {/* 中间：显示文本或输入框 */}
-          {inputMode === 'voice' ? (
-            <div className="flex-1 px-4 py-3 text-center text-sm text-gray-700">
-              按住 说话
-            </div>
-          ) : (
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && !isRecording) {
-                  handleTextSubmit();
-                }
-              }}
-              placeholder="输入指令或长按右侧麦克风语音输入"
-              disabled={isRecording}
-              className="flex-1 px-4 py-3 focus:outline-none text-sm text-gray-700 disabled:bg-gray-50 disabled:text-gray-400"
-            />
-          )}
-
-          {/* 右侧：发送按钮 */}
-          {inputMode === 'voice' ? null : (
-            <button
-              onClick={() => {
-                if (!isRecording && inputText.trim()) {
-                  handleTextSubmit();
-                }
-              }}
-              disabled={!inputText.trim() || isRecording}
-              className={`px-4 py-3 rounded-r-2xl transition-all flex items-center justify-center ${
-                !inputText.trim() || isRecording
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-green-500 text-white hover:bg-green-600'
-              }`}
-              style={{
-                minWidth: '48px',
-              }}
-              title="发送"
-            >
-              <Send size={20} />
-            </button>
-          )}
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
         </div>
-        {isRecording && (
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1 bg-red-500 text-white text-xs rounded-lg whitespace-nowrap shadow-lg">
-            正在录音，松开结束...
-          </div>
-        )}
       </div>
 
-      {/* 指令确认弹窗 */}
-      {showConfirmModal && parsedCommand && (
+      {/* 指令确认弹窗 - 批量模式 */}
+      {showConfirmModal && parsedCommands.length > 0 && (
         <div
-<<<<<<< HEAD
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
+          style={{ zIndex: 9999 }}
           onClick={handleCancelCommand}
         >
-          <div
-            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxHeight: 'calc(100vh - 2rem)' }}
-          >
+          <div className="w-full max-w-md">
+            <div
+              className="bg-white rounded-2xl p-6 w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxHeight: 'calc(100vh - 2rem)' }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-700">AI解析结果</h3>
+                <button
+                  onClick={handleCancelCommand}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
+                >
+                  <X size={20} className="text-gray-400" />
+                </button>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-sm text-gray-500 mb-3">共 {parsedCommands.length} 条指令：</p>
+                <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+                  {parsedCommands.map((cmd, index) => {
+                    const manualInput = manualInputs[index] || { cost: '', shares: '' };
+                    const stock = findStockByName(cmd.stockName);
+                    const currencySymbol = stock ? getCurrencySymbol(stock.symbol) : '¥';
+                    const needsPrice = (cmd.userIntent === '用户增持' || cmd.userIntent === '用户减持') && cmd.price <= 0;
+                    const needsShares = (cmd.userIntent === '用户增持' || cmd.userIntent === '用户减持') && cmd.shares <= 0;
+                    const hasError = needsPrice || needsShares;
+                    
+                    return (
+                      <div key={index} className={`bg-gray-50 p-4 rounded-lg border-2 ${hasError ? 'border-red-200' : 'border-gray-200'}`}>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500">股票名称：</span>
+                            <span className="text-sm font-semibold text-gray-700">{cmd.stockName}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500">用户诉求：</span>
+                            <span className={`text-sm font-semibold ${
+                              cmd.userIntent === '用户增持' ? 'text-green-600' :
+                              cmd.userIntent === '用户减持' ? 'text-red-600' :
+                              cmd.userIntent === '用户观望' ? 'text-blue-600' :
+                              (cmd.userIntent === '用户删除' || 
+                               cmd.userIntent === '用户删除持有' || 
+                               cmd.userIntent === '用户删除观望' || 
+                               cmd.userIntent === '用户全部删除') ? 'text-red-600' :
+                              'text-gray-600'
+                            }`}>
+                              {cmd.userIntent}
+                            </span>
+                          </div>
+                          
+                          {/* 只在增持或减持时显示价格和股数 */}
+                          {(cmd.userIntent === '用户增持' || cmd.userIntent === '用户减持') && (
+                            <>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-500">买卖价格：</span>
+                                {cmd.price > 0 ? (
+                                  <span className="text-sm font-semibold text-gray-700">
+                                    {currencySymbol}{cmd.price}/股
+                                  </span>
+                                ) : (
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-sm font-semibold text-gray-500">{currencySymbol}</span>
+                                    <input
+                                      type="number"
+                                      value={manualInput.cost}
+                                      onChange={(e) => {
+                                        setManualInputs({
+                                          ...manualInputs,
+                                          [index]: { ...manualInput, cost: e.target.value }
+                                        });
+                                      }}
+                                      placeholder="请输入买卖价格"
+                                      className="text-sm font-semibold text-red-600 border-2 border-red-300 rounded-lg px-2 py-1 w-28 focus:outline-none focus:border-red-500"
+                                      min="0.01"
+                                      step="0.01"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-500">股数：</span>
+                                {cmd.shares > 0 ? (
+                                  <span className="text-sm font-semibold text-gray-700">{cmd.shares} 股</span>
+                                ) : (
+                                  <input
+                                    type="number"
+                                    value={manualInput.shares}
+                                    onChange={(e) => {
+                                      setManualInputs({
+                                        ...manualInputs,
+                                        [index]: { ...manualInput, shares: e.target.value }
+                                      });
+                                    }}
+                                    placeholder="请输入股数"
+                                    className="text-sm font-semibold text-red-600 border-2 border-red-300 rounded-lg px-2 py-1 w-32 focus:outline-none focus:border-red-500"
+                                    min="1"
+                                    step="1"
+                                  />
+                                )}
+                              </div>
+                              {hasError && (
+                                <div className="mt-2 pt-2 border-t border-red-200 bg-red-50 p-2 rounded">
+                                  <p className="text-xs text-red-600">
+                                    {needsPrice && `• 买卖价格（${currencySymbol}）`}
+                                    {needsPrice && needsShares && '、'}
+                                    {needsShares && '• 股数'}
+                                  </p>
+                                </div>
+                              )}
+                            </>
+                          )}
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-500">时间：</span>
+                            <span className="text-sm font-semibold text-gray-700">
+                              {cmd.time && cmd.time !== '未知' ? cmd.time : <span className="text-gray-400">未指定</span>}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={handleConfirmCommand}
+                  disabled={parsedCommands.some((cmd, index) => {
+                    if (cmd.userIntent === '用户增持' || cmd.userIntent === '用户减持') {
+                      const manualInput = manualInputs[index] || { cost: '', shares: '' };
+                      const finalPrice = cmd.price > 0 ? cmd.price : Number(manualInput.cost);
+                      const finalShares = cmd.shares > 0 ? cmd.shares : Number(manualInput.shares);
+                      return !finalPrice || finalPrice <= 0 || !finalShares || finalShares <= 0;
+                    }
+                    return false;
+                  })}
+                  className={`w-full py-3 rounded-xl font-semibold transition-colors flex items-center justify-center gap-2 ${
+                    parsedCommands.some((cmd, index) => {
+                      if (cmd.userIntent === '用户增持' || cmd.userIntent === '用户减持') {
+                        const manualInput = manualInputs[index] || { cost: '', shares: '' };
+                        const finalPrice = cmd.price > 0 ? cmd.price : Number(manualInput.cost);
+                        const finalShares = cmd.shares > 0 ? cmd.shares : Number(manualInput.shares);
+                        return !finalPrice || finalPrice <= 0 || !finalShares || finalShares <= 0;
+                      }
+                      return false;
+                    })
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-green-500 text-white hover:bg-green-600'
+                  }`}
+                >
+                  <Check size={18} />
+                  确认执行批量操作
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 指令确认弹窗 - 单个模式 */}
+      {showConfirmModal && parsedCommand && parsedCommands.length === 0 && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
+          style={{ zIndex: 9999 }}
+          onClick={handleCancelCommand}
+        >
+          <div className="w-full max-w-md">
+            <div
+              className="bg-white rounded-2xl p-6 w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+              style={{ maxHeight: 'calc(100vh - 2rem)' }}
+            >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-700">确认执行指令</h3>
               <button
@@ -1350,24 +1593,7 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
               >
                 <X size={20} className="text-gray-400" />
               </button>
-=======
-          className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
-          onClick={handleCancelCommand}
-        >
-          {/* 弹窗外层容器：限制宽度与手机容器一致 */}
-          <div className="w-full max-w-md mx-auto">
-            <div
-              className="bg-white rounded-2xl p-6 w-full shadow-2xl max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-              style={{ maxHeight: 'calc(100vh - 2rem)' }}
-            >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-100">
-                <Mic size={20} className="text-gray-600" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-700">确认执行指令</h3>
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
+
             </div>
             
             <div className="mb-6">
@@ -1530,10 +1756,7 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
               </button>
             </div>
           </div>
-<<<<<<< HEAD
-=======
           </div>
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
         </div>
       )}
     </div>

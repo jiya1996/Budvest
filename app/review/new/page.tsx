@@ -1,19 +1,11 @@
 'use client';
 
-<<<<<<< HEAD
 import { useState, useEffect } from 'react';
-=======
-import { useState, useEffect, Suspense } from 'react';
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 import { useRouter, useSearchParams } from 'next/navigation';
 import { storage } from '@/lib/storage';
 import { ReviewEntry, Guru } from '@/lib/types';
 
-<<<<<<< HEAD
 export default function NewReviewPage() {
-=======
-function NewReviewPageContent() {
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
   const router = useRouter();
   const searchParams = useSearchParams();
   const [content, setContent] = useState('');
@@ -230,18 +222,3 @@ function NewReviewPageContent() {
     </div>
   );
 }
-<<<<<<< HEAD
-=======
-
-export default function NewReviewPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex justify-center items-center min-h-screen bg-slate-200">
-        <div className="text-slate-500">加载中...</div>
-      </div>
-    }>
-      <NewReviewPageContent />
-    </Suspense>
-  );
-}
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)

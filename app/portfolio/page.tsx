@@ -53,37 +53,17 @@ export default function PortfolioPage() {
   if (!config) {
     return (
       <>
-<<<<<<< HEAD
         <div style={{ padding: '40px 20px', textAlign: 'center' }}>
           <p>加载中...</p>
         </div>
         <BottomNav />
-=======
-        {/* 外层容器：限制宽度为手机屏幕宽度 */}
-        <div className="flex justify-center items-center min-h-screen bg-slate-200 font-sans">
-          <div className="w-full max-w-md h-[100dvh] md:h-[844px] bg-slate-50 shadow-2xl md:rounded-[40px] overflow-hidden md:border-[8px] md:border-slate-800 relative flex flex-col">
-            <div style={{ padding: '40px 20px', textAlign: 'center', flex: 1, overflowY: 'auto' }}>
-              <p>加载中...</p>
-            </div>
-            <BottomNav />
-          </div>
-        </div>
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
       </>
     );
   }
 
   return (
     <>
-<<<<<<< HEAD
       <div style={{ padding: '20px', paddingBottom: '100px' }}>
-=======
-      {/* 外层容器：限制宽度为手机屏幕宽度 */}
-      <div className="flex justify-center items-center min-h-screen bg-slate-200 font-sans">
-        <div className="w-full max-w-md h-[100dvh] md:h-[844px] bg-slate-50 shadow-2xl md:rounded-[40px] overflow-hidden md:border-[8px] md:border-slate-800 relative flex flex-col">
-          {/* 内容区域 */}
-          <div style={{ padding: '20px', paddingBottom: '100px', flex: 1, overflowY: 'auto' }}>
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
         <h1 style={{ fontSize: '24px', marginBottom: '24px', fontWeight: 'bold' }}>
           投资组合
         </h1>
@@ -214,17 +194,9 @@ export default function PortfolioPage() {
             </p>
           </div>
         </Card>
-<<<<<<< HEAD
       </div>
       <BottomNav />
-=======
-          </div>
-          
-          {/* Bottom Navigation */}
-          <BottomNav />
-        </div>
-      </div>
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
     </>
   );
 }
+

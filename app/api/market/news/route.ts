@@ -35,11 +35,8 @@ export async function GET(request: NextRequest) {
       case 'CN':
         // V0.3 Change: Use local SQLite DB for CN news (populated by Python service)
         // Dynamically import to avoid circular dependencies if any, though lib/db is safe
-<<<<<<< HEAD
         const { getStockNews } = await import('@/lib/db');
-=======
-        const { getStockNews } = await import('@/lib/legacy/db');
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
+
         const dbNews = getStockNews(code, limit);
 
         // Convert DB News to API NewsItem format

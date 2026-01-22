@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFundFlow, isDatabaseAvailable } from '@/lib/market-data';
+import { getFundFlow, isDatabaseAvailable, FundFlow } from '@/lib/market-data';
 
 /**
  * 资金流向 API
@@ -28,22 +28,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // 检查数据库是否可用
-<<<<<<< HEAD
     // Database check removed
-=======
-    if (!isDatabaseAvailable()) {
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
-      return NextResponse.json({
-        error: '数据库不可用，请先启动数据采集服务',
-        hint: 'cd data-service && python run.py'
-      }, { status: 503 });
-    }
-
-<<<<<<< HEAD
-    const data = getFundFlow(symbol, limit);
-=======
     const data = await getFundFlow(symbol, limit);
->>>>>>> 3b4ad3e (docs: 记录我本地的修改)
 
     if (!data || data.length === 0) {
       return NextResponse.json({
@@ -53,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 格式化返回数据
-    const result = data.map(item => ({
+    const result = data.map((item: FundFlow) => ({
       symbol: item.symbol,
       name: item.name,
       tradeDate: item.trade_date,
