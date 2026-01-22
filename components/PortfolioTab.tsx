@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { PortfolioItem } from '@/lib/types';
 import { TrendingUp, TrendingDown, Target, Eye, Wallet, Plus, X, Send, Check } from 'lucide-react';
@@ -71,12 +72,30 @@ function calculateHoldingDays(item: PortfolioItem): number {
 
 export default function PortfolioTab({ portfolio, onPortfolioUpdate }: PortfolioTabProps) {
   const router = useRouter();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [phoneFrameContainer, setPhoneFrameContainer] = useState<HTMLElement | null>(null);
   const [priceData, setPriceData] = useState<Record<string, PriceData>>({});
   const [exchangeRates, setExchangeRates] = useState<{ USDCNY: number; HKDCNY: number; CNYCNY: number } | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingStock, setEditingStock] = useState<PortfolioItem | null>(null);
   const [shares, setShares] = useState('');
   const [costPrice, setCostPrice] = useState('');
+  
+  // 查找手机黑框容器
+  useEffect(() => {
+    if (containerRef.current) {
+      // 向上查找父元素，找到手机黑框容器（有 max-w-md 和 relative class 的容器）
+      let parent = containerRef.current.parentElement;
+      while (parent) {
+        if (parent.classList.contains('max-w-md') && 
+            (parent.classList.contains('relative') || window.getComputedStyle(parent).position === 'relative')) {
+          setPhoneFrameContainer(parent);
+          break;
+        }
+        parent = parent.parentElement;
+      }
+    }
+  }, []);
   
   // 语音输入相关状态
 
@@ -955,6 +974,7 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
 
   return (
     <div
+      ref={containerRef}
       className="flex flex-col h-full relative overflow-hidden"
       style={{ background: 'linear-gradient(180deg, #E8F0FB 0%, #F0EBF8 50%, #FBF6F0 100%)' }}
     >
@@ -1280,102 +1300,197 @@ export default function PortfolioTab({ portfolio, onPortfolioUpdate }: Portfolio
         )}
       </div>
 
-      {/* 编辑弹窗 */}
+      {/* 编辑弹窗 - 使用 Portal 渲染到手机黑框容器，以覆盖标题栏和底部 tab */}
       {showEditModal && editingStock && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
-          style={{ zIndex: 9999 }}
-          onClick={handleCloseEditModal}
-        >
-          <div className="w-full max-w-md">
-            <div
-              className="bg-white rounded-2xl p-6 w-full shadow-2xl max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-              style={{ maxHeight: 'calc(100vh - 2rem)' }}
-            >
-              {/* 弹窗头部 */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <img src={editingStock.logo} alt={editingStock.name} className="w-10 h-10 rounded-lg" />
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-700">{editingStock.symbol}</h3>
-                    <p className="text-xs text-gray-400">{editingStock.name}</p>
+        phoneFrameContainer ? createPortal(
+          <div
+            className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"
+            style={{ zIndex: 9999 }}
+            onClick={handleCloseEditModal}
+          >
+            <div className="w-full max-w-md">
+              <div
+                className="bg-white rounded-2xl p-6 w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+                style={{ maxHeight: 'calc(100vh - 2rem)' }}
+              >
+                {/* 弹窗头部 */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <img src={editingStock.logo} alt={editingStock.name} className="w-10 h-10 rounded-lg" />
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-700">{editingStock.symbol}</h3>
+                      <p className="text-xs text-gray-400">{editingStock.name}</p>
+                    </div>
                   </div>
-                </div>
-                <button
-                  onClick={handleCloseEditModal}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
-                >
-                  <X size={20} className="text-gray-400" />
-                </button>
-              </div>
-
-              {/* 表单内容 */}
-              <div className="space-y-4">
-                {/* 持有股数 */}
-                <div>
-                  <label className="text-sm font-semibold text-gray-600 mb-2 block">
-                    持有股数 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={shares}
-                    onChange={(e) => setShares(e.target.value)}
-                    placeholder="例如：100"
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none transition-colors text-gray-700"
-                    min="1"
-                    step="1"
-                    required
-                  />
-                  <p className="text-xs text-gray-400 mt-1">股数必须大于0</p>
+                  <button
+                    onClick={handleCloseEditModal}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
+                  >
+                    <X size={20} className="text-gray-400" />
+                  </button>
                 </div>
 
-                {/* 每股持有成本 */}
-                <div>
-                  <label className="text-sm font-semibold text-gray-600 mb-2 block">
-                    每股持有成本 <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
-                      {editingStock ? getCurrencySymbol(editingStock.symbol) : '¥'}
-                    </span>
+                {/* 表单内容 */}
+                <div className="space-y-4">
+                  {/* 持有股数 */}
+                  <div>
+                    <label className="text-sm font-semibold text-gray-600 mb-2 block">
+                      持有股数 <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="number"
-                      value={costPrice}
-                      onChange={(e) => setCostPrice(e.target.value)}
+                      value={shares}
+                      onChange={(e) => setShares(e.target.value)}
                       placeholder="例如：100"
-                      className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none transition-colors text-gray-700 font-mono"
-                      min="0.01"
-                      step="0.01"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none transition-colors text-gray-700"
+                      min="1"
+                      step="1"
                       required
                     />
+                    <p className="text-xs text-gray-400 mt-1">股数必须大于0</p>
                   </div>
-                  {/* 显示计算结果 */}
-                  {costPrice && shares && Number(costPrice) > 0 && Number(shares) > 0 && (
-                    <div className="mt-2 text-xs text-gray-500">
-                      总成本：{editingStock ? getCurrencySymbol(editingStock.symbol) : '¥'}{(Number(costPrice) * Number(shares)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+                  {/* 每股持有成本 */}
+                  <div>
+                    <label className="text-sm font-semibold text-gray-600 mb-2 block">
+                      每股持有成本 <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
+                        {editingStock ? getCurrencySymbol(editingStock.symbol) : '¥'}
+                      </span>
+                      <input
+                        type="number"
+                        value={costPrice}
+                        onChange={(e) => setCostPrice(e.target.value)}
+                        placeholder="例如：100"
+                        className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none transition-colors text-gray-700 font-mono"
+                        min="0.01"
+                        step="0.01"
+                        required
+                      />
                     </div>
-                  )}
+                    {/* 显示计算结果 */}
+                    {costPrice && shares && Number(costPrice) > 0 && Number(shares) > 0 && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        总成本：{editingStock ? getCurrencySymbol(editingStock.symbol) : '¥'}{(Number(costPrice) * Number(shares)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 按钮组 */}
+                  <div className="pt-4">
+                    <button
+                      onClick={handleSaveEdit}
+                      className="w-full py-3 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors"
+                    >
+                      保存
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>,
+          phoneFrameContainer
+        ) : (
+          // 后备方案：如果找不到手机黑框容器，使用原来的 absolute 定位
+          <div
+            className="absolute inset-0 bg-black/50 flex items-center justify-center p-4"
+            style={{ zIndex: 9999 }}
+            onClick={handleCloseEditModal}
+          >
+            <div className="w-full max-w-md">
+              <div
+                className="bg-white rounded-2xl p-6 w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+                style={{ maxHeight: 'calc(100vh - 2rem)' }}
+              >
+                {/* 弹窗头部 */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <img src={editingStock.logo} alt={editingStock.name} className="w-10 h-10 rounded-lg" />
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-700">{editingStock.symbol}</h3>
+                      <p className="text-xs text-gray-400">{editingStock.name}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCloseEditModal}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
+                  >
+                    <X size={20} className="text-gray-400" />
+                  </button>
                 </div>
 
-                {/* 按钮组 */}
-                <div className="pt-4">
-                  <button
-                    onClick={handleSaveEdit}
-                    className="w-full py-3 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors"
-                  >
-                    保存
-                  </button>
+                {/* 表单内容 */}
+                <div className="space-y-4">
+                  {/* 持有股数 */}
+                  <div>
+                    <label className="text-sm font-semibold text-gray-600 mb-2 block">
+                      持有股数 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={shares}
+                      onChange={(e) => setShares(e.target.value)}
+                      placeholder="例如：100"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none transition-colors text-gray-700"
+                      min="1"
+                      step="1"
+                      required
+                    />
+                    <p className="text-xs text-gray-400 mt-1">股数必须大于0</p>
+                  </div>
+
+                  {/* 每股持有成本 */}
+                  <div>
+                    <label className="text-sm font-semibold text-gray-600 mb-2 block">
+                      每股持有成本 <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
+                        {editingStock ? getCurrencySymbol(editingStock.symbol) : '¥'}
+                      </span>
+                      <input
+                        type="number"
+                        value={costPrice}
+                        onChange={(e) => setCostPrice(e.target.value)}
+                        placeholder="例如：100"
+                        className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:outline-none transition-colors text-gray-700 font-mono"
+                        min="0.01"
+                        step="0.01"
+                        required
+                      />
+                    </div>
+                    {/* 显示计算结果 */}
+                    {costPrice && shares && Number(costPrice) > 0 && Number(shares) > 0 && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        总成本：{editingStock ? getCurrencySymbol(editingStock.symbol) : '¥'}{(Number(costPrice) * Number(shares)).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 按钮组 */}
+                  <div className="pt-4">
+                    <button
+                      onClick={handleSaveEdit}
+                      className="w-full py-3 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors"
+                    >
+                      保存
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )
       )}
 
       {/* 文本输入条 - 悬浮在底部导航栏上方 */}
       <div
-        className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 w-full max-w-md"
+        className="absolute left-0 right-0 z-50 px-4"
+        style={{ bottom: '10px' }}
       >
         <div className="relative bg-white rounded-2xl shadow-lg border-2 border-gray-200 flex items-center">
           <input
